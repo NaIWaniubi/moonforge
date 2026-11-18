@@ -10,6 +10,8 @@
 | NaIWaniubi/moonbin@0.6.0 | 已发布 2026-11-18 | `@moonbin.pe.parse/@moonbin.elf.parse/@moonbin.macho.parse(data)->Result[_,_]`；`Pe/Elf/MachO` 公开字段 `sections/symbols/imports/exports`（`Import{library,name}`、`Symbol{name,value,size,kind,bind,shndx}`、`Region{name,offset,size,vaddr,flags}`）；`@disasm.disassemble(bytes,addr,count)->Array[Insn]`（`Insn.addr/len/mnemonic/op_str/bytes`）；`@analysis.cfg(code,base)`、`@analysis.callgraph(code,base)->Array[(Int64,Int64)]` |
 | Rz-coder8848/moonpe@0.8.1 | 已发布 | PE 的 IAT（thunk 地址）、resources、.NET metadata、LoadConfig —— 以拉取到的源码实际导出为准，先读再调，不得猜字段名 |
 | NaIWaniubi/moonseek@0.17.5 | 已发布 | `@mooneseek.Index::new(schema)`、`add(Document)`、`search(query)->Array[Hit]`、`Hit{id,score,snippet,...}`（以源码为准） |
+| Han-Wentao/moonplist@0.1.1 | 已发布 | Apple binary/XML plist 有界解析与结构编辑 —— 真实导出以拉取源码为准，先读再调 |
+| clbbbb/moonbit-wasm-inspect@0.1.0 | 已发布 | WASM 二进制检查与分析（节表/导出/自定义段）—— 真实导出以拉取源码为准，先读再调 |
 
 依赖解析失败的唯一正确处理：读源码，不准猜 API。
 
@@ -22,6 +24,7 @@
 | S3 corpus | `src/corpus/`（corpus.mbt） |
 | S4 web | `src/web/`（main.mbt）、`web/`（静态页） |
 | S5 delivery | 只动根级文档与 CI：README.md、PROPOSAL.md、LICENSE 引证、`.github/workflows/ci.yml`、`test/` 顶层脚本 |
+| S6 breadth | `src/bundle/`、`src/wasmcheck/`；fixtures 生成器放切片自有目录 `fixtures_breadth/`（examples/ 只读，不写） |
 
 S1 的 CLI 是唯一入口；其它切片不许自己起 CLI 分支。
 
@@ -88,4 +91,41 @@ pub fn doc_snippet(id : String, query : String) -> String?
 
 ## S5 · delivery
 
-README（双语：EN 在上 ZH 在下，四段式：是什么/三条工作流命令/质量证据/依赖与许可清单——逐条列来源仓库+许可证+链接，这是"聚合器"的诚信声明，不是移植声明）；CI 覆盖 check/test/native/wasm 四项；PROPOSAL 按表单 8 点一页写成。
+README（双语：EN 在上 ZH 在下，四段式：是什么/工作流命令/质量证据/依赖与许可清单——逐条列来源仓库+许可证+链接，这是"聚合器"的诚信声明，不是移植声明）；CI 覆盖 check/test/native/wasm 四项；PROPOSAL 按表单 8 点一页写成。**S5 的依赖与许可清单必须写满五个来源包**（含 S6 增的两个），README 附注与 Lyhdsba/moonforge（构建任务跑项目）无功能交集的查重声明。
+
+## S6 · breadth（产物链广度层）
+
+原则：**每个新来源必须接进一条真实工作流**，不做引用堆砌。逆向的产物链是 二进制容器 → 应用打包物 → WebAssembly 模块，逐环补两个空：
+
+### S6a · bundle profile（应用打包物）
+
+```mbt
+// src/bundle/bundle.mbt
+pub struct PlistSummary {
+  keys : Array[String]            // 键全集（有序列表）
+  bundle_id : String?             // CFBundleIdentifier，缺失为 None
+  version : String?               // CFBundleShortVersionString，缺失为 None
+}
+pub struct BundleReport {
+  macho_format : String           // 来自 @moonbin macho parse（无则 "none"）
+  plist : PlistSummary?
+  note : String                   // 诚实说明缺了什么
+}
+pub fn bundle_profile(macho_bytes : Bytes, plist_bytes : Bytes?) -> BundleReport
+```
+
+做法：`@moonbin.macho.parse` 判 Mach-O 画像 + `moonplist` 解析 plist（API 以拉取源码为准，禁止猜）。Mach-O 与 plist 都缺失时 note 说明并返回空画像，不崩、不猜。wasm 可编译。
+
+**验收**：`fixtures_breadth/` 自造最小 plist fixture（含 CFBundleIdentifier/CFBundleShortVersionString）+ 无 plist 的对照组；断言键全集与两个字段取值；无 plist 时 plist=None 且 note 非空。
+
+### S6b · wasm check（WASM 体检）
+
+```mbt
+// src/wasmcheck/wasmcheck.mbt
+pub struct WasmSection { name : String, offset : Int32, size : Int32 }
+pub fn wasm_report(data : Bytes) -> Result[Array[WasmSection], String]
+```
+
+做法：基于 `@clbbbb/moonbit-wasm-inspect` 列出节表/导出/自定义段（API 以拉取源码为准，禁止猜）。非法魔数返回 Err 并带原因字符串，不静默给空表。
+
+**验收**：fixture 用本项目自身 `moon build --target wasm` 产物（提交一份到 `fixtures_breadth/minimal.wasm`，作为"工具分析生态自己的产物"的实证）；另造一个魔数错位的负例 → Err。
