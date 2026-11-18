@@ -1,0 +1,8 @@
+// xref: join an import table to call sites. Depends on moonbin's disassembler
+// and on nothing else — the caller supplies slots, so this package stays
+// format-agnostic and wasm-compilable.
+import {
+  "NaIWaniubi/moonbin/src/disasm",
+}
+
+warnings = "-6-9-79"

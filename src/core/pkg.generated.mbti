@@ -1,0 +1,53 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "NaIWaniubi/moonforge/src/core"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn detect_format(Bytes) -> Format
+
+pub fn hex_of_bytes(FixedArray[Byte]) -> String
+
+pub fn record_of_bytes(String, Bytes) -> FileRecord
+
+// Errors
+
+// Types and methods
+pub(all) struct FileRecord {
+  path : String
+  format : Format
+  size : Int64
+  sha256 : String?
+  summary : Summary
+} derive(Eq, @debug.Debug)
+
+pub(all) enum Format {
+  Pe
+  Elf
+  MachO
+  Unknown
+} derive(Eq, @debug.Debug)
+pub fn Format::from_label(String) -> Self?
+pub fn Format::label(Self) -> String
+
+pub(all) struct Manifest {
+  files : Array[FileRecord]
+}
+pub fn Manifest::from_json(String) -> Result[Self, String]
+pub fn Manifest::new() -> Self
+pub fn Manifest::push(Self, FileRecord) -> Unit
+pub fn Manifest::to_json(Self) -> String
+
+pub(all) struct Summary {
+  sections : Int32
+  symbols : Int32
+  imports : Int32
+  exports : Int32
+} derive(Eq, @debug.Debug)
+pub fn Summary::empty() -> Self
+
+// Type aliases
+
+// Traits

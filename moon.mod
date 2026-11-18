@@ -35,4 +35,5 @@ import {
   "NaIWaniubi/moonseek@0.17.5",
   "Han-Wentao/moonplist@0.1.1",
   "clbbbb/moonbit-wasm-inspect@0.1.0",
+  "moonbitlang/x@0.5.6",
 }

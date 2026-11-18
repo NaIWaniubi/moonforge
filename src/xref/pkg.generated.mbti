@@ -1,0 +1,36 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "NaIWaniubi/moonforge/src/xref"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn build_xref(Array[(Int64, String)], Bytes, Int64) -> XrefTable
+
+pub fn call_target(String, Int64) -> Int64?
+
+pub fn parse_hex(String, Int32) -> Int64?
+
+// Errors
+
+// Types and methods
+pub(all) struct ApiCallSite {
+  api : String
+  call_addr : Int64
+  target_addr : Int64
+} derive(Eq, @debug.Debug)
+
+type CallEdge derive(@debug.Debug)
+
+pub(all) struct XrefTable {
+  by_api : Array[(String, Int32)]
+  sites : Array[ApiCallSite]
+  unresolved : Int32
+  indirect_calls : Int32
+} derive(@debug.Debug)
+pub fn XrefTable::to_json(Self) -> String
+
+// Type aliases
+
+// Traits

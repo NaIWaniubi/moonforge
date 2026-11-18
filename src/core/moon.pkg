@@ -1,0 +1,12 @@
+// core: format-agnostic manifest types, JSON codec, sha256 digest.
+// No filesystem here — this package must compile to wasm.
+// Aggregates @moonbin's three container parsers; everything else is ours.
+import {
+  "NaIWaniubi/moonbin/src/pe",
+  "NaIWaniubi/moonbin/src/elf",
+  "NaIWaniubi/moonbin/src/macho",
+  "moonbitlang/x/crypto",
+}
+
+
+warnings = "-6-9-79"

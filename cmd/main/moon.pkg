@@ -1,0 +1,17 @@
+// main: the moonforge CLI. Native-only by construction — the filesystem lives
+// here and nowhere else, so src/core stays wasm-clean.
+import {
+  "NaIWaniubi/moonforge/src/core",
+  "NaIWaniubi/moonforge/src/xref",
+  "NaIWaniubi/moonbin/src/pe",
+  "Rz-coder8848/moonpe",
+  "moonbitlang/x/fs",
+  "moonbitlang/x/sys",
+  "moonbitlang/core/env",
+}
+
+options(
+  "is-main": true,
+)
+
+warnings = "-6-9-79"

@@ -1,0 +1,1 @@
+hello, this is a plain text sample.\nVirtualAlloc is mentioned here on purpose.\n
