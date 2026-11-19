@@ -1,0 +1,47 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install MoonBit (unix)
+        if: runner.os == 'Linux'
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+
+      - name: Install MoonBit (windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          irm https://cli.moonbitlang.com/install/powershell.ps1 | iex
+          echo "$HOME\.moon\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+
+      - name: Update registry index
+        run: moon install 2>/dev/null || true
+
+      - name: Check
+        run: moon check --deny-warn
+
+      - name: Test
+        run: moon test
+
+      - name: Build native
+        run: moon build --target native cmd/main
+
+      - name: Build wasm
+        run: moon build --target wasm --release src/web
+
+      - name: wasm acceptance
+        if: runner.os == 'Linux'
+        run: node test/web_node_check.mjs
