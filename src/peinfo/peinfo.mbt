@@ -86,7 +86,7 @@ fn iat_slots(data : Bytes) -> Array[(Int64, String)] {
   let opt = pe_off + 24
   let magic = u16(opt)
   let is64 = magic == 0x20B
-  if not(is64) && magic != 0x10B {
+  if !(is64) && magic != 0x10B {
     return out
   }
   let ptr = if is64 {

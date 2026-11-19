@@ -123,7 +123,7 @@ fn run_xref(argv : Array[String]) -> Unit raise {
 }
 
 ///|
-fn run_search(argv : Array[String]) -> Unit raise {
+fn run_search(argv : Array[String]) -> Unit {
   if argv.length() < 4 {
     usage()
     @sys.exit(2)
@@ -150,7 +150,7 @@ fn run_search(argv : Array[String]) -> Unit raise {
   let root_is_dir = @fs.is_dir(root) catch {
     @fs.IOError(_) => false
   }
-  if not(root_is_dir) {
+  if !(root_is_dir) {
     println("moonforge search: not a directory: " + root)
     @sys.exit(2)
     return
@@ -214,7 +214,7 @@ fn main raise {
   let root_is_dir = @fs.is_dir(root) catch {
     @fs.IOError(_) => false
   }
-  if not(root_is_dir) {
+  if !(root_is_dir) {
     println("moonforge: not a directory: " + root)
     @sys.exit(2)
   }

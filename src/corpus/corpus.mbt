@@ -99,7 +99,7 @@ pub fn snippet(text : String, term : String, radius : Int) -> String? {
     stop = text.length()
   }
   // Snap to char boundaries; the text here is ASCII runs, so this is direct.
-  let body = text.substring(start=start, end=stop)
+  let body = text[start:stop].to_owned()
   let mut out = ""
   if start > 0 {
     out = out + "…"

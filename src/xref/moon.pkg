@@ -5,4 +5,4 @@ import {
   "NaIWaniubi/moonbin/src/disasm",
 }
 
-warnings = "-6-9-79"
+warnings = "-6-9-79-25"

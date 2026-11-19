@@ -2,11 +2,8 @@
 // here and nowhere else, so src/core stays wasm-clean.
 import {
   "NaIWaniubi/moonforge/src/core",
-  "NaIWaniubi/moonforge/src/xref",
   "NaIWaniubi/moonforge/src/peinfo",
   "NaIWaniubi/moonforge/src/corpus",
-  "NaIWaniubi/moonbin/src/pe",
-  "Rz-coder8848/moonpe",
   "moonbitlang/x/fs",
   "moonbitlang/x/sys",
   "moonbitlang/core/env",
@@ -16,4 +13,4 @@ options(
   "is-main": true,
 )
 
-warnings = "-6-9-79"
+warnings = "-6-9-79-25"

@@ -48,8 +48,8 @@ test "snippet: surrounds the match with ellipses when text is cut" {
   match snippet(text, "TARGET", 3) {
     Some(s) => {
       assert_true(s.contains("TARGET"))
-      assert_true(s.starts_with("…"))
-      assert_true(s.ends_with("…"))
+      assert_true(s.has_prefix("…"))
+      assert_true(s.has_suffix("…"))
     }
     None => fail("expected a snippet")
   }

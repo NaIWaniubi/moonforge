@@ -298,7 +298,7 @@ fn read_int(s : String, at : Int) -> (Int64, Int)? {
   if i == start {
     return None
   }
-  let digits = s.substring(start=start, end=i)
+  let digits = s[start:i].to_owned()
   let mut v : Int64 = 0L
   for c in digits {
     v = v * 10L + (c.to_int() - 48).to_int64()
@@ -368,7 +368,7 @@ fn read_record(s : String, at : Int) -> (FileRecord, Int)? {
       size = Some(v)
       i = next
     } else if key == "sha256" {
-      if i + 3 < s.length() && s.substring(start=i, end=i + 4) == "null" {
+      if i + 3 < s.length() && s[i:i + 4].to_owned() == "null" {
         digest = None
         i = i + 4
       } else {
@@ -493,5 +493,5 @@ pub fn Manifest::from_json(text : String) -> Result[Manifest, String] {
   if i >= text.length() || text[i].to_int() != 93 {
     return Err("manifest: expected ']'")
   }
-  Ok({ files })
+  Ok({ files, })
 }

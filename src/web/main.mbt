@@ -6,29 +6,6 @@
 // access in here — the same MoonBit code that backs the CLI does the work.
 
 ///|
-fn hex(v : Int64) -> String {
-  if v < 0 {
-    return v.to_string()
-  }
-  if v == 0 {
-    return "0x0"
-  }
-  let mut x = v
-  let mut out = ""
-  while x > 0 {
-    let d = (x % 16).to_int()
-    let code = if d < 10 {
-      48 + d
-    } else {
-      87 + d
-    }
-    out = String::from_array([code.unsafe_to_char()]) + out
-    x = x / 16
-  }
-  "0x" + out
-}
-
-///|
 fn main {
   let argv = @env.args()
   let path = if argv.length() > 1 {

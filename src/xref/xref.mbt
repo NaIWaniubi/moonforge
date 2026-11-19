@@ -116,7 +116,7 @@ pub fn build_xref(
         break
       }
     }
-    if not(found) {
+    if !(found) {
       counts.push((site.api, 1))
     }
   }
@@ -148,11 +148,11 @@ pub fn call_target(op_str : String, insn_end : Int64) -> Int64? {
   if close < 0 {
     return None
   }
-  let inner = text.substring(start=open + 1, end=close)
-  if not(inner.has_prefix("rip")) {
+  let inner = text[open + 1:close].to_owned()
+  if !(inner.has_prefix("rip")) {
     return None
   }
-  let rest = inner.substring(start=3, end=inner.length())
+  let rest = inner[3:inner.length()].to_owned()
   let mut sign : Int64 = 1L
   let mut at = 0
   if rest.length() > 0 && rest[0].to_int() == 43 {
@@ -168,7 +168,7 @@ pub fn call_target(op_str : String, insn_end : Int64) -> Int64? {
     // assume a zero displacement.
     return None
   }
-  let disp_text = rest.substring(start=at, end=rest.length())
+  let disp_text = rest[at:rest.length()].to_owned()
   let disp = match parse_hex(disp_text, 0) {
     Some(v) => v
     None => return None
