@@ -93,6 +93,37 @@ fn usage() -> Unit {
 ///   RVA comes from OriginalFirstThunk + i*ptrsize (falling back to FirstThunk
 ///   itself when the original thunk table is absent). A zero entry ends the
 ///   library. An entry with its high bit set (bit 63 / bit 31) is by-ordinal.
+///|
+/// Count nonzero entries in a thunk table (INT or IAT) at `rva`, stepping by
+/// `ptr` bytes. Returns 0 when the table is unmapped; caps at 65536 so a
+/// corrupt table cannot spin.
+fn count_thunks(
+  rva_to_off : (Int64) -> Int64,
+  rva : Int64,
+  ptr : Int,
+  u32 : (Int) -> Int64,
+  u64 : (Int) -> Int64,
+) -> Int {
+  let mut n = 0
+  while n < 65536 {
+    let off = rva_to_off(rva + (n * ptr).to_int64())
+    if off < 0L {
+      break
+    }
+    let raw = if ptr == 8 {
+      u64(off.to_int())
+    } else {
+      u32(off.to_int())
+    }
+    if raw == 0L {
+      break
+    }
+    n = n + 1
+  }
+  n
+}
+
+///|
 fn iat_slots(data : Bytes) -> Array[(Int64, String)] {
   let out : Array[(Int64, String)] = []
   let pe = match @pe.parse(data) {
@@ -195,38 +226,101 @@ fn iat_slots(data : Bytes) -> Array[(Int64, String)] {
     } else {
       ft
     }
+    // Two independent lengths bound a library's slot block:
+    //   int_len — entries in the hint/name table (stops at the first zero);
+    //   iat_len — nonzero slots in the IAT itself.
+    // On a *bound* image the two disagree: notepad.exe's last descriptor has a
+    // 1-entry INT while its IAT still holds 7 pre-bound addresses. Trusting
+    // INT alone silently drops those slots (452 call sites on notepad), so the
+    // block is taken as the longer of the two and any slot the INT cannot name
+    // is labelled `#unresolved` rather than omitted.
+    let int_len = count_thunks(rva_to_off, thunk_table, ptr, u32, u64)
+    let iat_len = count_thunks(rva_to_off, ft, ptr, u32, u64)
+    let n = if int_len > iat_len {
+      int_len
+    } else {
+      iat_len
+    }
     let mut i = 0
-    while i < 65536 {
+    while i < n {
       let entry_rva = thunk_table + (i * ptr).to_int64()
       let entry_off = rva_to_off(entry_rva)
-      if entry_off < 0L {
-        break
-      }
-      // The hint/name RVA comes from the INT (thunk_table). The IAT slot's own
-      // on-disk value is irrelevant when the image is unbound, so it is not
-      // consulted here — only the INT decides the name and where the list ends.
-      let raw = if ptr == 8 {
-        u64(entry_off.to_int())
+      let api = if i >= int_len || entry_off < 0L {
+        "#unresolved"
       } else {
-        u32(entry_off.to_int())
-      }
-      if raw == 0L {
-        break
-      }
-      let by_ordinal = if ptr == 8 {
-        raw < 0L
-      } else {
-        (raw & 0x80000000L) != 0L
-      }
-      let api = if by_ordinal {
-        "#ordinal" + (raw & 0xFFFFL).to_string()
-      } else {
-        read_name(raw)
+        let raw = if ptr == 8 {
+          u64(entry_off.to_int())
+        } else {
+          u32(entry_off.to_int())
+        }
+        let by_ordinal = if ptr == 8 {
+          raw < 0L
+        } else {
+          (raw & 0x80000000L) != 0L
+        }
+        if by_ordinal {
+          "#ordinal" + (raw & 0xFFFFL).to_string()
+        } else {
+          read_name(raw)
+        }
       }
       out.push((ft + (i * ptr).to_int64(), api))
       i = i + 1
     }
     pos = pos + 20
+  }
+  // Delay-load imports live in data directory 13 and carry their own IATs.
+  // Their slots are called exactly the same way, so they belong in the table;
+  // leaving them out silently loses every delay-resolved call site.
+  let delay_rva = u32(dd + 13 * 8)
+  let delay_size = u32(dd + 13 * 8 + 4)
+  if delay_rva > 0L && delay_size > 0L {
+    let dbase = rva_to_off(delay_rva)
+    if dbase >= 0L {
+      let mut dpos = dbase.to_int()
+      let mut dguard = 0
+      // 32-byte descriptors: attributes, name, module, IAT, INT, bound, unload, ts
+      while dpos + 32 <= data.length() && dguard < 512 {
+        dguard = dguard + 1
+        let name_rva = u32(dpos + 4)
+        let iat_rva = u32(dpos + 12)
+        let int_rva = u32(dpos + 16)
+        if name_rva == 0L && iat_rva == 0L {
+          break
+        }
+        let table = if int_rva != 0L {
+          int_rva
+        } else {
+          iat_rva
+        }
+        let n = count_thunks(rva_to_off, table, ptr, u32, u64)
+        let mut k = 0
+        while k < n {
+          let entry_off = rva_to_off(table + (k * ptr).to_int64())
+          if entry_off < 0L {
+            break
+          }
+          let raw = if ptr == 8 {
+            u64(entry_off.to_int())
+          } else {
+            u32(entry_off.to_int())
+          }
+          let by_ordinal = if ptr == 8 {
+            raw < 0L
+          } else {
+            (raw & 0x80000000L) != 0L
+          }
+          let api = if by_ordinal {
+            "#ordinal" + (raw & 0xFFFFL).to_string()
+          } else {
+            read_name(raw)
+          }
+          out.push((iat_rva + (k * ptr).to_int64(), api))
+          k = k + 1
+        }
+        dpos = dpos + 32
+      }
+    }
   }
   // build_xref binary-searches, so the table must be sorted by slot RVA.
   out.sort_by(fn(a, b) { a.0.compare(b.0) })
