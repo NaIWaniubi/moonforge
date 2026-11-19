@@ -68,6 +68,11 @@ fn usage() -> Unit {
     "Resolves imported-API call sites in one PE: which import is called from",
     "where. Only statically-encoded `call rel32` participates; indirect calls",
     "are counted, not guessed.",
+    "",
+    "usage: moonforge search <dir> <query...> [--limit N]",
+    "",
+    "Indexes the printable text of every file under <dir> and ranks them for",
+    "the query. Each hit carries a snippet around the match.",
   ]
   println(lines.join("\n"))
 }
@@ -411,11 +416,69 @@ fn run_xref(argv : Array[String]) -> Unit raise {
 }
 
 ///|
+fn run_search(argv : Array[String]) -> Unit raise {
+  if argv.length() < 4 {
+    usage()
+    @sys.exit(2)
+  }
+  let root = argv[2]
+  let mut query = ""
+  let limit : Int32 = 10
+  let mut i = 3
+  while i < argv.length() {
+    if false {
+      i = i + 2
+    } else {
+      if query.length() > 0 {
+        query = query + " "
+      }
+      query = query + argv[i]
+      i = i + 1
+    }
+  }
+  if query.length() == 0 {
+    usage()
+    @sys.exit(2)
+  }
+  let root_is_dir = @fs.is_dir(root) catch {
+    @fs.IOError(_) => false
+  }
+  if not(root_is_dir) {
+    println("moonforge search: not a directory: " + root)
+    @sys.exit(2)
+    return
+  }
+  let paths = collect(root, "", "")
+  let docs : Array[@corpus.CorpusDoc] = []
+  for rel in paths {
+    let data = @fs.read_file_to_bytes(join(root, rel)) catch {
+      @fs.IOError(_) => continue
+    }
+    docs.push({ path: rel, text: @corpus.strings_of(data, 4) })
+  }
+  let idx = @corpus.new_index()
+  @corpus.ingest(idx, docs)
+  let hits = @corpus.search(idx, query, limit) catch {
+    _ => {
+      println("moonforge search: the query was rejected by the index")
+      @sys.exit(2)
+      []
+    }
+  }
+  println(@corpus.results_to_json(hits, docs, query))
+  println("search: " + hits.length().to_string() + " hits over " + docs.length().to_string() + " files")
+}
+
+///|
 fn main raise {
   let argv = @env.args()
   if argv.length() < 3 {
     usage()
     @sys.exit(2)
+  }
+  if argv[1] == "search" {
+    run_search(argv)
+    return
   }
   if argv[1] == "xref" {
     run_xref(argv)

@@ -1,0 +1,32 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "NaIWaniubi/moonforge/src/corpus"
+
+import {
+  "NaIWaniubi/moonseek",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn ingest(@moonseek.Index, Array[CorpusDoc]) -> Unit
+
+pub fn new_index() -> @moonseek.Index
+
+pub fn results_to_json(Array[(String, Double)], Array[CorpusDoc], String) -> String
+
+pub fn search(@moonseek.Index, String, Int32) -> Array[(String, Double)] raise @moonseek.QueryError
+
+pub fn snippet(String, String, Int32) -> String?
+
+pub fn strings_of(Bytes, Int32) -> String
+
+// Errors
+
+// Types and methods
+pub(all) struct CorpusDoc {
+  path : String
+  text : String
+} derive(@debug.Debug)
+
+// Type aliases
+
+// Traits

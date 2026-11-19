@@ -1,0 +1,7 @@
+// corpus: cross-file search over extracted text. Depends on moonseek only —
+// no filesystem, so this package compiles to wasm.
+import {
+  "NaIWaniubi/moonseek",
+}
+
+warnings = "-6-9-79"
