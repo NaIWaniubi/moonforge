@@ -1,0 +1,8 @@
+// peinfo: PE import/IAT reading and the xref pipeline. Shared by the CLI and
+// the wasm entry so the slot table has exactly one implementation.
+import {
+  "NaIWaniubi/moonforge/src/xref",
+  "NaIWaniubi/moonbin/src/pe",
+}
+
+warnings = "-6-9-79"

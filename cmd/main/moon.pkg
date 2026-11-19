@@ -3,6 +3,7 @@
 import {
   "NaIWaniubi/moonforge/src/core",
   "NaIWaniubi/moonforge/src/xref",
+  "NaIWaniubi/moonforge/src/peinfo",
   "NaIWaniubi/moonforge/src/corpus",
   "NaIWaniubi/moonbin/src/pe",
   "Rz-coder8848/moonpe",

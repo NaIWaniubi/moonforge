@@ -1,0 +1,16 @@
+// web: wasm entry for the browser workbench. Reads "input.bin" through the
+// host-provided fs glue and prints a single JSON object on stdout.
+import {
+  "NaIWaniubi/moonforge/src/core",
+  "NaIWaniubi/moonforge/src/xref",
+  "NaIWaniubi/moonforge/src/peinfo",
+  "NaIWaniubi/moonforge/src/corpus",
+  "moonbitlang/x/fs",
+  "moonbitlang/core/env",
+}
+
+options(
+  "is-main": true,
+)
+
+warnings = "-6-9-79"

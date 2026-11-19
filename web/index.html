@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8" />
+<title>moonforge · workbench</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; background: #0d1117; color: #c9d1d9;
+         font: 14px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  header { padding: 18px 22px; border-bottom: 1px solid #21262d; }
+  h1 { margin: 0 0 4px; font-size: 17px; font-weight: 600; letter-spacing: .2px; }
+  .sub { color: #8b949e; font-size: 12px; }
+  main { padding: 20px 22px 60px; max-width: 1080px; }
+  #drop { border: 1px dashed #30363d; border-radius: 10px; padding: 34px;
+          text-align: center; color: #8b949e; cursor: pointer; }
+  #drop.over { border-color: #58a6ff; color: #58a6ff; }
+  .row { display: flex; gap: 10px; margin: 16px 0; flex-wrap: wrap; }
+  input[type=text] { flex: 1 1 240px; background: #161b22; border: 1px solid #30363d;
+          color: #c9d1d9; border-radius: 6px; padding: 8px 10px; font: inherit; }
+  button { background: #21262d; border: 1px solid #30363d; color: #c9d1d9;
+          border-radius: 6px; padding: 8px 14px; font: inherit; cursor: pointer; }
+  button:hover { border-color: #58a6ff; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0 18px; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #21262d; }
+  th { color: #8b949e; font-weight: 500; font-size: 12px; text-transform: uppercase; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .bad { color: #f85149; } .ok { color: #3fb950; }
+  pre { background: #161b22; border: 1px solid #21262d; border-radius: 8px;
+        padding: 12px; overflow: auto; font-size: 12px; }
+  .pill { display: inline-block; padding: 1px 7px; border-radius: 999px;
+          background: #1f6feb22; border: 1px solid #1f6feb55; font-size: 11px; }
+  #msg { color: #8b949e; font-size: 12px; min-height: 18px; }
+</style>
+
+<header>
+  <h1>moonforge · workbench</h1>
+  <div class="sub">
+    同一份 MoonBit 代码，命令行和浏览器两条腿 —
+    容器解析 · IAT→调用点交叉引用 · 全语料检索。零 FFI，无后端。
+  </div>
+</header>
+
+<main>
+  <div id="drop">把一个 PE / ELF / Mach-O 文件拖进来，或点这里选择</div>
+  <input id="file" type="file" hidden />
+  <div class="row">
+    <input id="q" type="text" placeholder="在文件的字符串里搜一个词，比如 HeapAlloc" />
+    <button id="go">搜索</button>
+  </div>
+  <div id="msg"></div>
+  <div id="out"></div>
+</main>
+
+<script type="module">
+import { createRuntime } from "./runtime.mjs";
+
+const drop = document.getElementById("drop");
+const fileInput = document.getElementById("file");
+const q = document.getElementById("q");
+const go = document.getElementById("go");
+const msg = document.getElementById("msg");
+const out = document.getElementById("out");
+
+let modulePromise = null;
+let runtime = null;
+let current = null; // { name, bytes }
+
+async function loadRuntime() {
+  if (!modulePromise) {
+    msg.textContent = "loading wasm…";
+    modulePromise = fetch("./main.wasm")
+      .then((r) => r.arrayBuffer())
+      .then((buf) => new WebAssembly.Module(buf))
+      .then((m) => (runtime = createRuntime(m)));
+  }
+  return modulePromise;
+}
+
+const esc = (s) =>
+  String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function render(j) {
+  const rows = [
+    ["format", j.format],
+    ["size", j.size + " bytes"],
+    ["sha256", j.sha256 || "—"],
+    ["sections", j.sections],
+    ["imports", j.imports],
+    ["symbols", j.symbols],
+    ["text extracted", j.text_bytes + " bytes"],
+  ];
+  let html = "<table><tbody>";
+  for (const [k, v] of rows) html += `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`;
+  html += "</tbody></table>";
+
+  if (j.xref) {
+    const x = j.xref;
+    html += `<h3 style="font-size:13px;color:#8b949e;margin:18px 0 6px">IAT → 调用点</h3>
+      <table><thead><tr><th>slots</th><th>resolved sites</th><th>distinct APIs</th><th>unresolved</th><th>indirect</th></tr></thead>
+      <tbody><tr><td class="num">${x.slots}</td><td class="num">${x.sites}</td><td class="num">${x.apis}</td>
+      <td class="num">${x.unresolved}</td><td class="num">${x.indirect}</td></tr></tbody></table>`;
+    if (x.top.length) {
+      html += `<table><thead><tr><th>API</th><th class="num">call sites</th></tr></thead><tbody>`;
+      for (const a of x.top) html += `<tr><td>${esc(a.api)}</td><td class="num">${a.count}</td></tr>`;
+      html += "</tbody></table>";
+    }
+  } else {
+    html += `<p style="color:#8b949e">不是 PE，未生成交叉引用（没有伪造空表）。</p>`;
+  }
+
+  if (j.matches && j.matches.length) {
+    html += `<h3 style="font-size:13px;color:#8b949e;margin:18px 0 6px">检索命中</h3><table><tbody>`;
+    for (const m of j.matches) {
+      html += `<tr><td><span class="pill">${m.score.toFixed(3)}</span></td><td>${esc(m.snippet)}</td></tr>`;
+    }
+    html += "</tbody></table>";
+  }
+  out.innerHTML = html;
+}
+
+async function analyze() {
+  if (!current) return;
+  await loadRuntime();
+  const argv = ["moonforge-web", "input.bin"];
+  if (q.value.trim()) argv.push(q.value.trim());
+  const r = runtime.run(current.bytes, argv);
+  try {
+    const j = JSON.parse(r.stdout);
+    render(j);
+    msg.textContent = "ok · " + current.name;
+    msg.className = "ok";
+  } catch (e) {
+    msg.textContent = "wasm 输出无法解析：" + r.stdout.slice(0, 200);
+    msg.className = "bad";
+  }
+}
+
+async function accept(file) {
+  const buf = new Uint8Array(await file.arrayBuffer());
+  current = { name: file.name, bytes: buf };
+  drop.textContent = file.name + " · " + buf.length + " bytes";
+  await analyze();
+}
+
+drop.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", () => fileInput.files[0] && accept(fileInput.files[0]));
+for (const t of ["dragenter", "dragover"]) drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add("over"); });
+for (const t of ["dragleave", "drop"]) drop.addEventListener(t, () => drop.classList.remove("over"));
+drop.addEventListener("drop", (e) => {
+  e.preventDefault();
+  const f = e.dataTransfer.files[0];
+  if (f) accept(f);
+});
+go.addEventListener("click", analyze);
+q.addEventListener("keydown", (e) => { if (e.key === "Enter") analyze(); });
+loadRuntime().catch(() => { msg.textContent = "wasm 加载失败：请用 http:// 打开本页（python -m http.server）"; msg.className = "bad"; });
+</script>
+</html>
