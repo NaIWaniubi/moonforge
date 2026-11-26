@@ -5,7 +5,7 @@ on:
   pull_request:
 
 env:
-  MOONBIT_INSTALL_VERSION: 0.1.20261023
+  MOONBIT_INSTALL_VERSION: latest
 
 jobs:
   build:
@@ -20,14 +20,14 @@ jobs:
       - name: Install MoonBit (unix)
         if: runner.os == 'Linux'
         run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s -- 0.1.20261023
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s -- latest
           echo "$HOME/.moon/bin" >> $GITHUB_PATH
 
       - name: Install MoonBit (windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $env:MOONBIT_INSTALL_VERSION = "0.1.20261023"
+          $env:MOONBIT_INSTALL_VERSION = "latest"
           irm https://cli.moonbitlang.com/install/powershell.ps1 | iex
           echo "$HOME\.moon\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
 

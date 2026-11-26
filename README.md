@@ -79,7 +79,7 @@ Parsers already exist. MoonForge's contribution is the **evidence and decision l
 | External cross-check | PE section count matches `objdump -h`; import semantics documented |
 | CLI contract | stdout is machine-readable JSON; gate exit codes 0/1/2 verified |
 | Determinism | repeated canonical JSON is byte-identical |
-| CI | pinned MoonBit `0.1.20261023`, format/check/test/native/wasm/mutation/cross-check/benchmark gates |
+| CI | records the installed MoonBit version; format/check/test/native/wasm/mutation/cross-check/benchmark gates |
 
 The xref trust boundary is explicit: only statically encoded calls that land exactly on an import slot are attributed. On `notepad.exe`, xref v2 decodes 3,285 calls, attributes 1,606 sites across 295 APIs, and keeps 1,679 unresolved direct targets visible. Indirect calls are counted, never guessed. Unsupported instruction bytes and unresolved targets remain visible in the ledger.
 
@@ -166,7 +166,7 @@ python -m http.server 8080
 | 外部交叉核对 | PE 节数与 `objdump -h` 一致；导入语义差异已注明 |
 | CLI 契约 | stdout 为机器可读 JSON；gate 退出码 0/1/2 已验证 |
 | 确定性 | 重复 canonical JSON 字节一致 |
-| CI | 固定 MoonBit `0.1.20261023`，覆盖 format/check/test/native/wasm/mutation/cross-check/benchmark |
+| CI | 记录实际安装的 MoonBit 版本；覆盖 format/check/test/native/wasm/mutation/cross-check/benchmark |
 
 xref 信任边界写明：只归因精确落在导入槽上的静态编码调用。notepad.exe 上 xref v2 解码 3,285 条调用，归因 1,606 个站点、295 个 API，并保留 1,679 个未解析直接目标。间接调用只计数，不猜目标；不支持的指令字节与未解析目标保留在账目中。
 
