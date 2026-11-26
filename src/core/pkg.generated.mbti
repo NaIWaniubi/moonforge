@@ -21,12 +21,15 @@ pub(all) struct FileRecord {
   size : Int64
   sha256 : String?
   summary : Summary
+  parse_status : String
 } derive(Eq, @debug.Debug)
 
 pub(all) enum Format {
   Pe
   Elf
   MachO
+  Wasm
+  Plist
   Unknown
 } derive(Eq, @debug.Debug)
 pub fn Format::from_label(String) -> Self?

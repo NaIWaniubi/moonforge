@@ -86,6 +86,27 @@ check("v2 PE carries xref v2 ledger", j4.artifacts?.[0]?.xref_v2?.ledger?.decode
 check("v2 WASM artifact carries section report", Array.isArray(j4.artifacts?.[2]?.wasm), String(j4.artifacts?.[2]?.wasm?.length));
 check("v2 two artifacts produce a diff", j4.diff && typeof j4.diff === "object");
 check("v2 search spans artifacts", Array.isArray(j4.matches));
+check(
+  "v2 reports honest read and parse status",
+  j4.artifacts?.every((a) => a.read_status === "ok" && a.parse_status === "parsed"),
+  j4.artifacts?.map((a) => a.read_status + "/" + a.parse_status).join(","),
+);
+
+const policyText = JSON.stringify({ rules: [{ id: "no-format-change", kind: "artifact", change: "changed", key_prefix: "format" }] });
+const r5 = runtime.run(
+  { "dbg.exe": sample, "Info.plist": plistBytes },
+  ["moonforge-web-v2", "dbg.exe", "Info.plist", "--policy", policyText],
+);
+const j5 = JSON.parse(r5.stdout);
+check("v2 policy gate blocks a seeded change", j5.gate?.passed === false && j5.gate?.violations?.[0]?.rule_id === "no-format-change");
+check("v2 invalid policy fails closed", (() => {
+  const bad = runtime.run(
+    { "dbg.exe": sample, "Info.plist": plistBytes },
+    ["moonforge-web-v2", "dbg.exe", "Info.plist", "--policy", "{\"rules\":[{\"kind\":\"import\"}]}"],
+  );
+  const parsed = JSON.parse(bad.stdout);
+  return parsed.gate?.passed === false && typeof parsed.gate?.error === "string";
+})());
 
 console.log(failures === 0 ? "\nWASM WORKBENCH PASS" : "\nWASM WORKBENCH FAIL (" + failures + ")");
 process.exit(failures === 0 ? 0 : 1);

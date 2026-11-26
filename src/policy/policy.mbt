@@ -35,28 +35,78 @@ pub(all) struct GateResult {
 } derive(Debug)
 
 ///|
-fn string_field(
+fn required_string(
+  obj : Map[String, Json],
+  key : String,
+) -> Result[String, String] {
+  match obj.get(key) {
+    Some(String(value)) =>
+      if value.length() > 0 {
+        Ok(value)
+      } else {
+        Err("policy." + key + " must be a non-empty string")
+      }
+    _ => Err("policy." + key + " must be a string")
+  }
+}
+
+///|
+fn optional_string(
   obj : Map[String, Json],
   key : String,
   default : String,
-) -> String {
+) -> Result[String, String] {
   match obj.get(key) {
-    Some(String(value)) => value
-    _ => default
+    None => Ok(default)
+    Some(String(value)) => Ok(value)
+    Some(_) => Err("policy." + key + " must be a string")
   }
 }
 
 ///|
 fn parse_rule(value : Json) -> Result[PolicyRule, String] {
   match value {
-    Object(obj) =>
-      Ok({
-        id: string_field(obj, "id", "rule"),
-        kind: string_field(obj, "kind", ""),
-        change: string_field(obj, "change", ""),
-        key_prefix: string_field(obj, "key_prefix", ""),
-        severity: string_field(obj, "severity", "warning"),
-      })
+    Object(obj) => {
+      let id = match required_string(obj, "id") {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      let kind = match optional_string(obj, "kind", "") {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      let change = match optional_string(obj, "change", "") {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      let key_prefix = match optional_string(obj, "key_prefix", "") {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      let severity = match optional_string(obj, "severity", "warning") {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      if change != "" &&
+        change != "added" &&
+        change != "removed" &&
+        change != "changed" {
+        return Err("policy.change must be added, removed, changed, or empty")
+      }
+      if severity != "error" &&
+        severity != "warning" &&
+        severity != "note" &&
+        severity != "none" &&
+        severity != "high" &&
+        severity != "medium" &&
+        severity != "low" &&
+        severity != "info" {
+        return Err(
+          "policy.severity must be error, warning, note, none, high, medium, low, or info",
+        )
+      }
+      Ok({ id, kind, change, key_prefix, severity, })
+    }
     _ => Err("policy rule must be an object")
   }
 }
@@ -66,7 +116,9 @@ fn parse_rule(value : Json) -> Result[PolicyRule, String] {
 /// `{ "rules": [ { "id": "...", "kind": "import", "change": "added",
 /// "key_prefix": "kernel32!", "severity": "high" } ] }`
 pub fn parse_policy(text : String) -> Result[Policy, String] {
-  let root = @json.parse(text) catch { _ => return Err("invalid policy JSON") }
+  let root = @json.parse(text, reject_duplicate_keys=true) catch {
+    _ => return Err("invalid policy JSON")
+  }
   match root {
     Object(obj) => {
       let rules_json = match obj.get("rules") {

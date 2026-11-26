@@ -138,6 +138,7 @@ v0.1 的冻结签名作为历史记录保留；v0.2 的公共契约以本附录�
 
 ### 已实现的新包
 
+- `src/core/`：`Format` 扩展为 `Pe/Elf/MachO/Wasm/Plist/Unknown`；`FileRecord.parse_status` 取值为 `parsed/malformed/empty/unsupported`，旧 manifest 缺字段时兼容为 `legacy`。
 - `src/evidence/`：`Artifact`、`Location`、`Fact`、`Diagnostic`、`EvidenceReport`，canonical JSON。
 - `src/diff/`：`FactLocation`、`CanonicalFact`、`FactSet`、`DiffItem`、`DiffReport`，JSON 与 SARIF 2.1.0。
 - `src/policy/`：`PolicyRule`、`Policy`、`Violation`、`GateResult`，声明式 policy JSON。
@@ -154,8 +155,9 @@ v0.1 的冻结签名作为历史记录保留；v0.2 的公共契约以本附录�
 ### Web 协议
 
 - 旧协议：`["moonforge-web", "input.bin", query?]`。
-- v2：`["moonforge-web-v2", file1, file2, ..., "--query", term]`。
-- v2 输出 `protocol/artifacts/diff/bundle/matches/notes`，用于多 artifact 证据工作台。
+- v2：`["moonforge-web-v2", file1, file2, ..., "--query", term, "--policy", policyJson]`。
+- v2 输出 `protocol/artifacts/diff/bundle/matches/gate/notes`；每个 artifact 带 `read_status` 与 `parse_status`。
+- policy 仅在有至少两个 artifact 时执行；非法 policy 返回 `passed=false` 与明确 `error`，失败关闭。
 
 ### 公共 API 迁移说明
 
@@ -163,3 +165,4 @@ v0.1 的冻结签名作为历史记录保留；v0.2 的公共契约以本附录�
 - `ApiCallSite.call_addr` 保留；v2 使用独立的 `XrefSiteV2`，避免破坏 v1 调用方。
 - corpus 的 v1 冻结函数名未实现；当前入口是 `new_index/ingest/search/snippet/results_to_json`，web v2 直接使用这些真实 API。
 - `js_scan/js_xref/js_search` 未实现；wasm 入口采用 argv/stdout 协议，Node 与浏览器共用同一 runtime。
+- native CLI 的成功与错误 stdout 均为单个 JSON 值；usage/输入错误退出码为 2，policy 违规退出码为 1，通过为 0。

@@ -208,28 +208,92 @@ pub fn DiffReport::to_json(self : DiffReport) -> String {
 }
 
 ///|
-/// Minimal SARIF 2.1.0 for CI consumption.
+fn sarif_rule(id : String, name : String, description : String) -> Json {
+  Json::object({
+    "id": Json::string(id),
+    "name": Json::string(name),
+    "shortDescription": Json::object({ "text": Json::string(description) }),
+  })
+}
+
+///|
+fn sarif_location(loc : FactLocation) -> Json {
+  Json::object({
+    "physicalLocation": Json::object({
+      "artifactLocation": Json::object({ "uri": Json::string("artifact") }),
+      "region": Json::object({
+        "byteOffset": Json::number(loc.file_offset.to_double()),
+        "byteLength": Json::number(loc.size.to_double()),
+      }),
+    }),
+  })
+}
+
+///|
+fn sarif_item(item : DiffItem) -> Json {
+  let loc = match item.new_location {
+    Some(value) => Some(value)
+    None => item.old_location
+  }
+  let locations : Array[Json] = []
+  match loc {
+    Some(value) => locations.push(sarif_location(value))
+    None => ()
+  }
+  let level = if item.change == "added" { "warning" } else { "note" }
+  Json::object({
+    "ruleId": Json::string("diff-" + item.change),
+    "level": Json::string(level),
+    "message": Json::object({
+      "text": Json::string(item.change + " " + item.kind + " " + item.key),
+    }),
+    "locations": Json::array(locations),
+    "properties": Json::object({
+      "change": Json::string(item.change),
+      "kind": Json::string(item.kind),
+      "key": Json::string(item.key),
+      "old_value": Json::string(item.old_value),
+      "new_value": Json::string(item.new_value),
+    }),
+  })
+}
+
+///|
+/// SARIF 2.1.0 for CI consumption.
 pub fn DiffReport::to_sarif(self : DiffReport) -> String {
   let results : Array[Json] = []
   for item in self.added {
-    results.push(jitem(item))
+    results.push(sarif_item(item))
   }
   for item in self.removed {
-    results.push(jitem(item))
+    results.push(sarif_item(item))
   }
   for item in self.changed {
-    results.push(jitem(item))
+    results.push(sarif_item(item))
   }
   Json::object({
     "version": Json::string("2.1.0"),
+    "$schema": Json::string("https://json.schemastore.org/sarif-2.1.0.json"),
     "runs": Json::array([
       Json::object({
         "tool": Json::object({
           "driver": Json::object({
             "name": Json::string("MoonForge RE Workbench"),
+            "version": Json::string("0.2.0"),
             "informationUri": Json::string(
               "https://github.com/NaIWaniubi/moonforge",
             ),
+            "rules": Json::array([
+              sarif_rule(
+                "diff-added", "DiffAdded", "A normalized fact was added.",
+              ),
+              sarif_rule(
+                "diff-removed", "DiffRemoved", "A normalized fact was removed.",
+              ),
+              sarif_rule(
+                "diff-changed", "DiffChanged", "A normalized fact changed.",
+              ),
+            ]),
           }),
         }),
         "results": Json::array(results),
@@ -244,23 +308,23 @@ fn parse_location(value : Json) -> FactLocation raise DiffParseError {
     Object(obj) => {
       let section = match obj.get("section") {
         Some(String(s)) => s
-        _ => ""
+        _ => raise DiffParseError("location.section must be a string")
       }
       let rva = match obj.get("rva") {
         Some(Number(n, ..)) => n.to_int64()
-        _ => 0L
+        _ => raise DiffParseError("location.rva must be a number")
       }
       let va = match obj.get("va") {
         Some(Number(n, ..)) => n.to_int64()
-        _ => 0L
+        _ => raise DiffParseError("location.va must be a number")
       }
       let file_offset = match obj.get("file_offset") {
         Some(Number(n, ..)) => n.to_int64()
-        _ => 0L
+        _ => raise DiffParseError("location.file_offset must be a number")
       }
       let size = match obj.get("size") {
         Some(Number(n, ..)) => n.to_int64()
-        _ => 0L
+        _ => raise DiffParseError("location.size must be a number")
       }
       { section, rva, va, file_offset, size, }
     }
@@ -273,23 +337,23 @@ fn parse_fact(value : Json) -> CanonicalFact raise DiffParseError {
   match value {
     Object(obj) => {
       let kind = match obj.get("kind") {
-        Some(String(s)) => s
-        _ => raise DiffParseError("fact.kind must be a string")
+        Some(String(s)) if s.length() > 0 => s
+        _ => raise DiffParseError("fact.kind must be a non-empty string")
       }
       let key = match obj.get("key") {
-        Some(String(s)) => s
-        _ => raise DiffParseError("fact.key must be a string")
+        Some(String(s)) if s.length() > 0 => s
+        _ => raise DiffParseError("fact.key must be a non-empty string")
       }
       let val = match obj.get("value") {
         Some(String(s)) => s
-        _ => ""
+        _ => raise DiffParseError("fact.value must be a string")
       }
       let location = match obj.get("location") {
         Some(loc) =>
           parse_location(loc) catch {
             DiffParseError(message) => raise DiffParseError(message)
           }
-        None => { section: "", rva: 0L, va: 0L, file_offset: 0L, size: 0L, }
+        None => raise DiffParseError("fact.location is required")
       }
       { kind, key, value: val, location, }
     }
@@ -300,14 +364,14 @@ fn parse_fact(value : Json) -> CanonicalFact raise DiffParseError {
 ///|
 /// Parse the canonical fact-set JSON produced by MoonForge adapters.
 pub fn FactSet::from_json(text : String) -> Result[FactSet, String] {
-  let root = @json.parse(text) catch {
+  let root = @json.parse(text, reject_duplicate_keys=true) catch {
     _ => return Err("invalid fact-set JSON")
   }
   match root {
     Object(obj) => {
       let artifact_hash = match obj.get("artifact_hash") {
         Some(String(s)) => s
-        _ => ""
+        _ => return Err("artifact_hash must be a string")
       }
       let facts_json = match obj.get("facts") {
         Some(Array(items)) => items

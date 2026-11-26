@@ -8,19 +8,19 @@
 ## 10–25 秒：一次输入，多格式证据
 
 操作：打开 MoonForge Pages，拖入 `dbg.exe`、`Info.plist`、`minimal.wasm`。
-画面：三张 artifact 卡片同时出现格式、SHA-256、节/导入导出、WASM 节表。
+画面：三张 artifact 卡片同时出现 read/parse 状态、格式、SHA-256、节/导入导出、WASM 节表。
 旁白：“一份 MoonBit 核心，native 和浏览器共用；没有后端，没有 FFI。”
 
 ## 25–45 秒：从导入到调用点
 
-操作：展开 PE 的 xref v2 面板。
-画面：3,285 decoded calls、1,606 attributed sites、295 APIs；点击一个 API 下钻到 section、RVA、指令字节和 IAT slot。
+操作：展开 PE 的 xref v2「调用点明细」。
+画面：3,285 decoded calls、1,606 attributed sites、295 APIs；明细表列出 section、RVA、指令字节、IAT slot 与命中规则。
 旁白：“每个结论都能回到字节。猜不到的 1,679 个直接目标明确留为 unresolved。”
 
 ## 45–65 秒：两个构建，一次审判
 
-操作：拖入 old/new 两个 artifact，展示 diff。
-画面：added / removed / changed 三列表，新增 kernel32 导入被 policy 命中。
+操作：拖入 old/new 两个 artifact，在 policy 文本框粘贴禁止新增 kernel32 导入的规则并点击「分析」。
+画面：added / removed / changed 三列表，新增 kernel32 导入被 policy 命中，Gate 显示 BLOCK 与违规明细。
 旁白：“跨格式归一化事实做 diff，声明式 policy 直接给出放行结论和 SARIF。”
 
 ## 65–80 秒：CI 门禁

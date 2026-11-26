@@ -4,6 +4,8 @@ pub(all) enum Format {
   Pe
   Elf
   MachO
+  Wasm
+  Plist
   Unknown
 } derive(Eq, Debug)
 
@@ -13,12 +15,14 @@ pub fn Format::label(self : Format) -> String {
     Pe => "pe"
     Elf => "elf"
     MachO => "macho"
+    Wasm => "wasm"
+    Plist => "plist"
     Unknown => "unknown"
   }
 }
 
 ///|
-/// Lowercase label back to a Format. Only the four canonical labels are
+/// Lowercase label back to a Format. Only the six canonical labels are
 /// accepted; anything else is a parse error at the manifest layer, never a
 /// silent Unknown (an unknown label in a manifest is a corrupt manifest).
 pub fn Format::from_label(label : String) -> Format? {
@@ -26,6 +30,8 @@ pub fn Format::from_label(label : String) -> Format? {
     "pe" => Some(Pe)
     "elf" => Some(Elf)
     "macho" => Some(MachO)
+    "wasm" => Some(Wasm)
+    "plist" => Some(Plist)
     "unknown" => Some(Unknown)
     _ => None
   }
@@ -55,6 +61,7 @@ pub(all) struct FileRecord {
   size : Int64
   sha256 : String?
   summary : Summary
+  parse_status : String
 } derive(Eq, Debug)
 
 ///|

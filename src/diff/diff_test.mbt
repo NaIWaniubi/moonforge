@@ -79,3 +79,42 @@ test "fact-set JSON round trip preserves normalized facts" {
     Err(error) => fail(error)
   }
 }
+
+///|
+test "fact-set parser rejects missing or wrongly typed required fields" {
+  let missing_location = "{\"artifact_hash\":\"h\",\"facts\":[{\"kind\":\"import\",\"key\":\"k\",\"value\":\"v\"}]}"
+  match @diff.FactSet::from_json(missing_location) {
+    Ok(_) => fail("missing location must be rejected")
+    Err(_) => ()
+  }
+  let wrong_value = "{\"artifact_hash\":\"h\",\"facts\":[{\"kind\":\"import\",\"key\":\"k\",\"value\":7,\"location\":{\"section\":\"\",\"rva\":0,\"va\":0,\"file_offset\":0,\"size\":0}}]}"
+  match @diff.FactSet::from_json(wrong_value) {
+    Ok(_) => fail("non-string value must be rejected")
+    Err(_) => ()
+  }
+}
+
+///|
+test "SARIF output carries required result and tool fields" {
+  let report : @diff.DiffReport = {
+    added: [
+      {
+        change: "added",
+        kind: "import",
+        key: "kernel32!VirtualAlloc",
+        old_value: "",
+        new_value: "rva",
+        old_location: None,
+        new_location: Some(loc(1L)),
+      },
+    ],
+    removed: [],
+    changed: [],
+  }
+  let sarif = report.to_sarif()
+  assert_true(sarif.contains("\"version\":\"2.1.0\""))
+  assert_true(sarif.contains("\"ruleId\":\"diff-added\""))
+  assert_true(sarif.contains("\"message\""))
+  assert_true(sarif.contains("\"locations\""))
+  assert_true(sarif.contains("\"properties\""))
+}

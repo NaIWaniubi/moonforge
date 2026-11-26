@@ -31,8 +31,9 @@
   #drop.over { border-color: var(--blue); color: var(--blue); background: #101b2b; }
   #drop strong { color: var(--text); font-weight: 600; }
   .toolbar { display: flex; gap: 10px; margin: 14px 0; flex-wrap: wrap; align-items: center; }
-  input[type=text] { flex: 1 1 280px; background: var(--panel); border: 1px solid var(--line); color: var(--text);
+  input[type=text], textarea { background: var(--panel); border: 1px solid var(--line); color: var(--text);
           border-radius: 7px; padding: 9px 11px; font: inherit; }
+  textarea { width: 100%; resize: vertical; }
   button { background: #1b2330; border: 1px solid #303b4a; color: var(--text); border-radius: 7px;
           padding: 9px 14px; font: inherit; cursor: pointer; }
   button:hover { border-color: var(--blue); }
@@ -80,6 +81,9 @@
     <button id="export">导出 JSON</button>
     <button id="demo">加载 Demo</button>
   </div>
+  <div class="toolbar">
+    <textarea id="policy" rows="3" placeholder="可选：粘贴 policy JSON（需两个 artifact 才会执行 gate），例如 {&quot;rules&quot;:[{&quot;id&quot;:&quot;no-new-import&quot;,&quot;kind&quot;:&quot;import&quot;,&quot;change&quot;:&quot;added&quot;,&quot;key_prefix&quot;:&quot;kernel32!&quot;}]}"></textarea>
+  </div>
   <div id="msg"></div>
 
   <div id="out"></div>
@@ -91,6 +95,7 @@ import { createRuntime } from "./runtime.mjs";
 const drop = document.getElementById("drop");
 const fileInput = document.getElementById("file");
 const q = document.getElementById("q");
+const policyInput = document.getElementById("policy");
 const go = document.getElementById("go");
 const exportBtn = document.getElementById("export");
 const demoBtn = document.getElementById("demo");
@@ -105,6 +110,7 @@ let lastResult = null;
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const short = (s, n = 16) => s && s.length > n ? s.slice(0, n) + "…" : s;
+const hex = (n) => "0x" + Number(n ?? 0).toString(16);
 
 async function loadRuntime() {
   if (!modulePromise) {
@@ -112,7 +118,12 @@ async function loadRuntime() {
     modulePromise = fetch("./main.wasm")
       .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.arrayBuffer(); })
       .then((buf) => new WebAssembly.Module(buf))
-      .then((m) => (runtime = createRuntime(m)));
+      .then((m) => {
+        runtime = createRuntime(m);
+        msg.textContent = "wasm ready";
+        msg.className = "ok";
+        return runtime;
+      });
   }
   return modulePromise;
 }
@@ -127,9 +138,13 @@ function renderFiles() {
 function renderArtifact(a) {
   const x = a.xref_v2;
   const ledger = x?.ledger || {};
+  const readClass = a.read_status === "ok" ? "ok" : "bad";
+  const parseClass = a.parse_status === "parsed" ? "ok" : a.parse_status === "missing" ? "bad" : "warn";
   let html = `<section class="card">
     <h2>${esc(a.name)} <span class="pill">${esc(a.format)}</span></h2>
     <table><tbody>
+      <tr><th>read</th><td class="${readClass}">${esc(a.read_status)}</td></tr>
+      <tr><th>parse</th><td class="${parseClass}">${esc(a.parse_status)}</td></tr>
       <tr><th>size</th><td class="num">${a.size} B</td></tr>
       <tr><th>sha256</th><td title="${esc(a.sha256)}">${esc(short(a.sha256, 20))}</td></tr>
       <tr><th>sections</th><td class="num">${a.summary.sections}</td></tr>
@@ -145,14 +160,26 @@ function renderArtifact(a) {
         <tr><th>unresolved direct</th><td class="num">${ledger.unresolved_direct ?? 0}</td></tr>
         <tr><th>indirect</th><td class="num">${ledger.indirect_calls ?? 0}</td></tr>
         <tr><th>refused bytes</th><td class="num">${ledger.refused_bytes ?? 0}</td></tr>
+        <tr><th>sections scanned</th><td class="num">${ledger.sections_scanned ?? 0}</td></tr>
       </tbody></table>`;
     if (x.by_api?.length) {
       html += `<table><thead><tr><th>API</th><th class="num">sites</th></tr></thead><tbody>`;
-      for (const a of x.by_api.slice(0, 10)) html += `<tr><td>${esc(a.api)}</td><td class="num">${a.count}</td></tr>`;
+      for (const item of x.by_api.slice(0, 15)) html += `<tr><td>${esc(item.api)}</td><td class="num">${item.count}</td></tr>`;
       html += `</tbody></table>`;
     }
-  } else {
+    if (x.sites?.length) {
+      const shown = x.sites.slice(0, 200);
+      html += `<details><summary>调用点明细 · 显示 ${shown.length} / ${x.sites.length}</summary>
+        <table><thead><tr><th>API</th><th>call</th><th>target</th><th>section</th><th>RVA</th><th>bytes</th><th>rule</th></tr></thead><tbody>`;
+      for (const s of shown) {
+        html += `<tr><td>${esc(s.api)}</td><td>${hex(s.call)}</td><td>${hex(s.target)}</td><td>${esc(s.section)}</td><td>${hex(s.rva)}</td><td>${esc((s.bytes || []).join(" "))}</td><td>${esc(s.rule)}</td></tr>`;
+      }
+      html += `</tbody></table></details>`;
+    }
+  } else if (a.read_status === "ok" && a.parse_status === "parsed") {
     html += `<div class="empty">非 PE：未伪造 xref 空表。</div>`;
+  } else {
+    html += `<div class="empty">输入不可用或未解析：未生成 xref 证据。</div>`;
   }
   if (Array.isArray(a.wasm)) {
     html += `<h2>WASM sections</h2><table><thead><tr><th>name</th><th class="num">offset</th><th class="num">size</th></tr></thead><tbody>`;
@@ -178,6 +205,22 @@ function render(j) {
       ${!j.diff.added?.length && !j.diff.removed?.length && !j.diff.changed?.length ? `<div class="empty">两个 artifact 的归一化事实一致。</div>` : ""}
     </section>`;
   }
+  if (j.gate) {
+    const gateClass = j.gate.passed ? "ok" : "bad";
+    html += `<section class="card" style="margin-top:14px"><h2>Policy gate · <span class="${gateClass}">${j.gate.passed ? "PASS" : "BLOCK"}</span></h2>`;
+    if (j.gate.error) {
+      html += `<div class="bad">${esc(j.gate.error)}</div>`;
+    } else if (j.gate.violations?.length) {
+      html += `<table><thead><tr><th>rule</th><th>severity</th><th>change</th><th>kind</th><th>key</th><th>message</th></tr></thead><tbody>`;
+      for (const v of j.gate.violations) {
+        html += `<tr><td>${esc(v.rule_id)}</td><td>${esc(v.severity)}</td><td>${esc(v.change)}</td><td>${esc(v.kind)}</td><td>${esc(v.key)}</td><td>${esc(v.message)}</td></tr>`;
+      }
+      html += `</tbody></table>`;
+    } else {
+      html += `<div class="empty">${j.gate.passed ? "没有匹配的违规项。" : "Gate 未通过，但没有返回违规明细。"}</div>`;
+    }
+    html += `</section>`;
+  }
   if (j.bundle) {
     html += `<section class="card" style="margin-top:14px"><h2>Bundle profile</h2>
       <table><tbody><tr><th>macho</th><td>${esc(j.bundle.macho_format)}</td></tr>
@@ -200,14 +243,22 @@ async function analyze() {
   const files = Object.fromEntries(current.map((f) => [f.name, f.bytes]));
   const argv = ["moonforge-web-v2", ...current.map((f) => f.name)];
   if (q.value.trim()) argv.push("--query", q.value.trim());
-  const r = runtime.run(files, argv);
+  if (policyInput.value.trim()) argv.push("--policy", policyInput.value.trim());
+  let r;
+  try {
+    r = runtime.run(files, argv);
+  } catch (e) {
+    msg.textContent = "wasm 执行失败：" + (e?.message || String(e));
+    msg.className = "bad";
+    return;
+  }
   try {
     lastResult = JSON.parse(r.stdout);
     render(lastResult);
-    msg.textContent = `ok · ${current.length} artifact(s) · ${r.stdout.length} JSON bytes`;
+    msg.textContent = `ok · ${current.length} artifact(s) · ${r.stdout.length} JSON bytes${r.stderr ? ` · stderr: ${r.stderr.slice(0, 120)}` : ""}`;
     msg.className = "ok";
   } catch (e) {
-    msg.textContent = "wasm 输出无法解析：" + r.stdout.slice(0, 200);
+    msg.textContent = "wasm 输出无法解析：" + (r.stdout || r.stderr || "").slice(0, 200);
     msg.className = "bad";
   }
 }

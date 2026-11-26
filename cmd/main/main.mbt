@@ -41,23 +41,29 @@ fn collect(root : String, dir : String, prefix : String) -> Array[String] {
 }
 
 ///|
-fn usage() -> Unit {
-  println(
-    [
-      "usage: moonforge <command> [args]", "", "commands:", "  scan <dir> [--out <file>]",
-      "  xref <file.exe> [--out <file>]", "  xref-v2 <file.exe> [--out <file>]",
-      "  search <dir> <query...> [--limit N]", "  bundle <macho> [Info.plist]", "  wasmcheck <module.wasm>",
-      "  diff <old.json> <new.json> [--format json|sarif]", "  gate <old.json> <new.json> <policy.json>",
-    ].join("\n"),
-  )
+fn usage() -> String {
+  [
+    "usage: moonforge <command> [args]", "", "commands:", "  scan <dir> [--out <file>]",
+    "  xref <file.exe> [--out <file>]", "  xref-v2 <file.exe> [--out <file>]", "  search <dir> <query...> [--limit N]",
+    "  bundle <macho> [Info.plist]", "  wasmcheck <module.wasm>", "  diff <old.json> <new.json> [--format json|sarif]",
+    "  gate <old.json> <new.json> <policy.json>",
+  ].join("\n")
+}
+
+///|
+/// Every failure leaves stdout as one machine-readable JSON value. Scripts can
+/// parse failures exactly like successful reports; exit code 2 means usage or
+/// input error, while gate violations use exit code 1.
+fn fail_json(message : String) -> Unit {
+  println("{\"error\":" + Json::string(message).stringify() + "}")
+  @sys.exit(2)
 }
 
 ///|
 fn read_bytes(path : String) -> Bytes {
   @fs.read_file_to_bytes(path) catch {
     @fs.IOError(message) => {
-      println("moonforge: cannot read " + path + ": " + message)
-      @sys.exit(2)
+      fail_json("cannot read " + path + ": " + message)
       Bytes::from_array([])
     }
   }
@@ -67,8 +73,7 @@ fn read_bytes(path : String) -> Bytes {
 fn read_string(path : String) -> String {
   @fs.read_file_to_string(path) catch {
     @fs.IOError(message) => {
-      println("moonforge: cannot read " + path + ": " + message)
-      @sys.exit(2)
+      fail_json("cannot read " + path + ": " + message)
       ""
     }
   }
@@ -79,10 +84,8 @@ fn write_or_print(text : String, out_path : String?) -> Unit {
   match out_path {
     Some(path) =>
       @fs.write_string_to_file(path, text) catch {
-        @fs.IOError(message) => {
-          println("moonforge: cannot write " + path + ": " + message)
-          @sys.exit(2)
-        }
+        @fs.IOError(message) =>
+          fail_json("cannot write " + path + ": " + message)
       }
     None => println(text)
   }
@@ -109,8 +112,7 @@ fn parse_int(text : String) -> Int32? {
 ///|
 fn run_scan(argv : Array[String]) -> Unit {
   if argv.length() < 3 {
-    usage()
-    @sys.exit(2)
+    fail_json(usage())
   }
   let root = argv[2]
   let mut out_path : String? = None
@@ -120,14 +122,12 @@ fn run_scan(argv : Array[String]) -> Unit {
       out_path = Some(argv[i + 1])
       i = i + 2
     } else {
-      println("moonforge scan: unexpected argument " + argv[i])
-      @sys.exit(2)
+      fail_json("scan: unexpected argument " + argv[i])
     }
   }
   let root_is_dir = @fs.is_dir(root) catch { @fs.IOError(_) => false }
   if !root_is_dir {
-    println("moonforge scan: not a directory: " + root)
-    @sys.exit(2)
+    fail_json("scan: not a directory: " + root)
   }
   let paths = collect(root, "", "")
   let manifest = @core.Manifest::new()
@@ -146,8 +146,7 @@ fn run_scan(argv : Array[String]) -> Unit {
 ///|
 fn run_xref(argv : Array[String], v2 : Bool) -> Unit {
   if argv.length() < 3 {
-    usage()
-    @sys.exit(2)
+    fail_json(usage())
   }
   let path = argv[2]
   let mut out_path : String? = None
@@ -157,8 +156,7 @@ fn run_xref(argv : Array[String], v2 : Bool) -> Unit {
       out_path = Some(argv[i + 1])
       i = i + 2
     } else {
-      println("moonforge xref: unexpected argument " + argv[i])
-      @sys.exit(2)
+      fail_json("xref: unexpected argument " + argv[i])
     }
   }
   let data = read_bytes(path)
@@ -174,8 +172,7 @@ fn run_xref(argv : Array[String], v2 : Bool) -> Unit {
 ///|
 fn run_search(argv : Array[String]) -> Unit {
   if argv.length() < 4 {
-    usage()
-    @sys.exit(2)
+    fail_json(usage())
   }
   let root = argv[2]
   let mut query = ""
@@ -186,8 +183,7 @@ fn run_search(argv : Array[String]) -> Unit {
       limit = match parse_int(argv[i + 1]) {
         Some(value) => value
         None => {
-          println("moonforge search: invalid limit " + argv[i + 1])
-          @sys.exit(2)
+          fail_json("search: invalid limit " + argv[i + 1])
           10
         }
       }
@@ -201,13 +197,11 @@ fn run_search(argv : Array[String]) -> Unit {
     }
   }
   if query.length() == 0 {
-    usage()
-    @sys.exit(2)
+    fail_json(usage())
   }
   let root_is_dir = @fs.is_dir(root) catch { @fs.IOError(_) => false }
   if !root_is_dir {
-    println("moonforge search: not a directory: " + root)
-    @sys.exit(2)
+    fail_json("search: not a directory: " + root)
   }
   let paths = collect(root, "", "")
   let docs : Array[@corpus.CorpusDoc] = []
@@ -219,8 +213,7 @@ fn run_search(argv : Array[String]) -> Unit {
   @corpus.ingest(idx, docs)
   let hits = @corpus.search(idx, query, limit) catch {
     _ => {
-      println("moonforge search: the query was rejected by the index")
-      @sys.exit(2)
+      fail_json("search: the query was rejected by the index")
       []
     }
   }
@@ -230,8 +223,7 @@ fn run_search(argv : Array[String]) -> Unit {
 ///|
 fn run_bundle(argv : Array[String]) -> Unit {
   if argv.length() < 3 {
-    usage()
-    @sys.exit(2)
+    fail_json(usage())
   }
   let macho = read_bytes(argv[2])
   let plist = if argv.length() >= 4 { Some(read_bytes(argv[3])) } else { None }
@@ -241,24 +233,19 @@ fn run_bundle(argv : Array[String]) -> Unit {
 ///|
 fn run_wasmcheck(argv : Array[String]) -> Unit {
   if argv.length() < 3 {
-    usage()
-    @sys.exit(2)
+    fail_json(usage())
   }
   let data = read_bytes(argv[2])
   match @wasmcheck.wasm_report(data) {
     Ok(sections) => println(@wasmcheck.sections_to_json(sections))
-    Err(error) => {
-      println("moonforge wasmcheck: " + error)
-      @sys.exit(2)
-    }
+    Err(error) => fail_json("wasmcheck: " + error)
   }
 }
 
 ///|
 fn run_diff(argv : Array[String]) -> Unit {
   if argv.length() < 4 {
-    usage()
-    @sys.exit(2)
+    fail_json(usage())
   }
   let mut format = "json"
   let mut i = 4
@@ -267,23 +254,20 @@ fn run_diff(argv : Array[String]) -> Unit {
       format = argv[i + 1]
       i = i + 2
     } else {
-      println("moonforge diff: unexpected argument " + argv[i])
-      @sys.exit(2)
+      fail_json("diff: unexpected argument " + argv[i])
     }
   }
   let old = match @diff.FactSet::from_json(read_string(argv[2])) {
     Ok(value) => value
     Err(error) => {
-      println("moonforge diff: invalid old fact set: " + error)
-      @sys.exit(2)
+      fail_json("diff: invalid old fact set: " + error)
       { artifact_hash: "", facts: [], }
     }
   }
   let new = match @diff.FactSet::from_json(read_string(argv[3])) {
     Ok(value) => value
     Err(error) => {
-      println("moonforge diff: invalid new fact set: " + error)
-      @sys.exit(2)
+      fail_json("diff: invalid new fact set: " + error)
       { artifact_hash: "", facts: [], }
     }
   }
@@ -293,38 +277,33 @@ fn run_diff(argv : Array[String]) -> Unit {
   } else if format == "json" {
     println(report.to_json())
   } else {
-    println("moonforge diff: unknown format " + format)
-    @sys.exit(2)
+    fail_json("diff: unknown format " + format)
   }
 }
 
 ///|
 fn run_gate(argv : Array[String]) -> Unit {
   if argv.length() < 5 {
-    usage()
-    @sys.exit(2)
+    fail_json(usage())
   }
   let old = match @diff.FactSet::from_json(read_string(argv[2])) {
     Ok(value) => value
     Err(error) => {
-      println("moonforge gate: invalid old fact set: " + error)
-      @sys.exit(2)
+      fail_json("gate: invalid old fact set: " + error)
       { artifact_hash: "", facts: [], }
     }
   }
   let new = match @diff.FactSet::from_json(read_string(argv[3])) {
     Ok(value) => value
     Err(error) => {
-      println("moonforge gate: invalid new fact set: " + error)
-      @sys.exit(2)
+      fail_json("gate: invalid new fact set: " + error)
       { artifact_hash: "", facts: [], }
     }
   }
   let policy = match @policy.parse_policy(read_string(argv[4])) {
     Ok(value) => value
     Err(error) => {
-      println("moonforge gate: invalid policy: " + error)
-      @sys.exit(2)
+      fail_json("gate: invalid policy: " + error)
       { rules: [], }
     }
   }
@@ -341,8 +320,7 @@ fn run_gate(argv : Array[String]) -> Unit {
 fn main {
   let argv = @env.args()
   if argv.length() < 2 {
-    usage()
-    @sys.exit(2)
+    fail_json(usage())
   }
   match argv[1] {
     "scan" => run_scan(argv)
@@ -353,10 +331,6 @@ fn main {
     "wasmcheck" => run_wasmcheck(argv)
     "diff" => run_diff(argv)
     "gate" => run_gate(argv)
-    _ => {
-      println("moonforge: unknown command '" + argv[1] + "'")
-      usage()
-      @sys.exit(2)
-    }
+    _ => fail_json("unknown command '" + argv[1] + "'\n" + usage())
   }
 }

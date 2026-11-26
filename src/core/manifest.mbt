@@ -13,7 +13,8 @@ fn be32(data : Bytes, at : Int32) -> Int32 {
 ///|
 /// Container detection from the leading bytes only. Order matters: MZ before
 /// anything else, then ELF magic, then the four Mach-O magics plus the fat
-/// header. Everything else is Unknown and is never handed to a parser.
+/// header, then WASM magic/version, then XML/binary plist. Everything else is
+/// Unknown and is never handed to a parser.
 pub fn detect_format(data : Bytes) -> Format {
   let n = data.length()
   if n >= 2 && data[0].to_int() == 0x4D && data[1].to_int() == 0x5A {
@@ -37,46 +38,113 @@ pub fn detect_format(data : Bytes) -> Format {
       return MachO
     }
   }
+  if n >= 8 &&
+    data[0].to_int() == 0x00 &&
+    data[1].to_int() == 0x61 &&
+    data[2].to_int() == 0x73 &&
+    data[3].to_int() == 0x6D &&
+    data[4].to_int() == 0x01 &&
+    data[5].to_int() == 0x00 &&
+    data[6].to_int() == 0x00 &&
+    data[7].to_int() == 0x00 {
+    return Wasm
+  }
+  if data.has_prefix(b"bplist00"[:]) ||
+    data.has_prefix(b"<?xml"[:]) ||
+    data.has_prefix(b"<plist"[:]) {
+    return Plist
+  }
   Unknown
 }
 
 ///|
-fn summarize(data : Bytes, format : Format) -> Summary {
+fn wasm_ints(data : Bytes) -> Array[Int32] {
+  let out : Array[Int32] = []
+  for b in data {
+    out.push(b.to_int())
+  }
+  out
+}
+
+///|
+fn summarize(data : Bytes, format : Format) -> (Summary, String) {
   match format {
     Pe =>
       match @pe.parse(data) {
         Ok(pe) =>
-          {
-            sections: pe.sections.length(),
-            symbols: pe.symbols.length(),
-            imports: pe.imports.length(),
-            exports: pe.exports.length(),
-          }
-        Err(_) => Summary::empty()
+          (
+            {
+              sections: pe.sections.length(),
+              symbols: pe.symbols.length(),
+              imports: pe.imports.length(),
+              exports: pe.exports.length(),
+            },
+            "parsed",
+          )
+        Err(_) => (Summary::empty(), "malformed")
       }
     Elf =>
       match @elf.parse(data) {
         Ok(elf) =>
-          {
-            sections: elf.sections.length(),
-            symbols: elf.symbols.length(),
-            imports: elf.imports.length(),
-            exports: elf.exports.length(),
-          }
-        Err(_) => Summary::empty()
+          (
+            {
+              sections: elf.sections.length(),
+              symbols: elf.symbols.length(),
+              imports: elf.imports.length(),
+              exports: elf.exports.length(),
+            },
+            "parsed",
+          )
+        Err(_) => (Summary::empty(), "malformed")
       }
     MachO =>
       match @macho.parse(data) {
         Ok(m) =>
-          {
-            sections: m.sections.length(),
-            symbols: m.symbols.length(),
-            imports: m.imports.length(),
-            exports: m.exports.length(),
-          }
-        Err(_) => Summary::empty()
+          (
+            {
+              sections: m.sections.length(),
+              symbols: m.symbols.length(),
+              imports: m.imports.length(),
+              exports: m.exports.length(),
+            },
+            "parsed",
+          )
+        Err(_) => (Summary::empty(), "malformed")
       }
-    Unknown => Summary::empty()
+    Wasm =>
+      match @wasm_inspect.parse_module(wasm_ints(data)) {
+        Ok(parsed) =>
+          match @wasm_inspect.decode_module(parsed) {
+            Ok(decoded) =>
+              (
+                {
+                  sections: parsed.sections().length(),
+                  symbols: 0,
+                  imports: decoded.imports().length(),
+                  exports: decoded.exports().length(),
+                },
+                "parsed",
+              )
+            Err(_) => (Summary::empty(), "malformed")
+          }
+        Err(_) => (Summary::empty(), "malformed")
+      }
+    Plist =>
+      try {
+        let _ = @moonplist.decode(data)
+        (Summary::empty(), "parsed")
+      } catch {
+        _ => (Summary::empty(), "malformed")
+      }
+    Unknown =>
+      (
+        Summary::empty(),
+        if data.length() == 0 {
+          "empty"
+        } else {
+          "unsupported"
+        },
+      )
   }
 }
 
@@ -119,6 +187,7 @@ pub fn hex_of_bytes(bytes : FixedArray[Byte]) -> String {
 /// hashing nothing and calling the result a file identity would be a lie.
 pub fn record_of_bytes(path : String, data : Bytes) -> FileRecord {
   let format = detect_format(data)
+  let (summary, parse_status) = summarize(data, format)
   {
     path,
     format,
@@ -128,7 +197,8 @@ pub fn record_of_bytes(path : String, data : Bytes) -> FileRecord {
     } else {
       Some(hex_of_bytes(@crypto.sha256(data)))
     },
-    summary: summarize(data, format),
+    summary,
+    parse_status,
   }
 }
 
@@ -183,7 +253,9 @@ fn record_to_json(r : FileRecord) -> String {
   r.size.to_string() +
   ",\"sha256\":" +
   digest +
-  ",\"summary\":{\"sections\":" +
+  ",\"parse_status\":\"" +
+  escape_json(r.parse_status) +
+  "\",\"summary\":{\"sections\":" +
   r.summary.sections.to_string() +
   ",\"symbols\":" +
   r.summary.symbols.to_string() +
@@ -335,6 +407,7 @@ fn read_record(s : String, at : Int32) -> (FileRecord, Int32)? {
   let mut size : Int64? = None
   let mut digest : String? = None
   let mut summary : Summary? = None
+  let mut parse_status : String? = None
   while i < s.length() && s[i].to_int() != 125 {
     // key
     let (key, after_key) = match read_string(s, i) {
@@ -379,6 +452,13 @@ fn read_record(s : String, at : Int32) -> (FileRecord, Int32)? {
         digest = Some(v)
         i = next
       }
+    } else if key == "parse_status" {
+      let (v, next) = match read_string(s, i) {
+        Some(pair) => pair
+        None => return None
+      }
+      parse_status = Some(v)
+      i = next
     } else if key == "summary" {
       let (v, next) = match read_summary(s, i) {
         Some(pair) => pair
@@ -398,10 +478,25 @@ fn read_record(s : String, at : Int32) -> (FileRecord, Int32)? {
     return None
   }
   match (path, format, size, summary) {
-    (Some(p), Some(f), Some(sz), Some(sm)) =>
+    (Some(p), Some(f), Some(sz), Some(sm)) => {
+      let status = match parse_status {
+        Some(value) => value
+        None => "legacy"
+      }
       Some(
-        ({ path: p, format: f, size: sz, sha256: digest, summary: sm, }, i + 1),
+        (
+          {
+            path: p,
+            format: f,
+            size: sz,
+            sha256: digest,
+            summary: sm,
+            parse_status: status,
+          },
+          i + 1,
+        ),
       )
+    }
     _ => None
   }
 }

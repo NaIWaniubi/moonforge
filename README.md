@@ -15,7 +15,7 @@ The same MoonBit core powers native CLIs and an offline WASM browser workbench. 
 ## Quick start
 
 ```bash
-moon install
+moon update
 moon check --deny-warn
 moon test -j 1
 
@@ -55,6 +55,7 @@ Open `http://127.0.0.1:8080`, drop one or more artifacts, and inspect:
 - Mach-O + Info.plist bundle profile;
 - WASM section report;
 - cross-file string search;
+- optional declarative policy gate with pass/block and violation details;
 - raw canonical JSON and report export.
 
 The multi-artifact protocol is versioned as `moonforge-v2`; the legacy single-file protocol remains supported.
@@ -73,12 +74,13 @@ Parsers already exist. MoonForge's contribution is the **evidence and decision l
 
 | Check | Result |
 |---|---|
-| MoonBit unit tests | **44/44** |
-| WASM workbench assertions | **21/21** on real PE/plist/WASM inputs |
+| MoonBit unit tests | **54/54** |
+| WASM workbench assertions | **24/24** on real PE/plist/WASM inputs |
 | Mutation harness | **10,000 inputs, 0 failures** |
 | External cross-check | PE section count matches `objdump -h`; import semantics documented |
-| CLI contract | stdout is machine-readable JSON; gate exit codes 0/1/2 verified |
+| CLI contract | success and error stdout are machine-readable JSON; gate exit codes 0/1/2 verified |
 | Determinism | repeated canonical JSON is byte-identical |
+| Benchmark gate | p95 ≤ 150 ms by default; override with `MOONFORGE_BENCH_P95_MS` |
 | CI | records the installed MoonBit version; check/test/native/wasm/mutation/cross-check/benchmark gates |
 
 The xref trust boundary is explicit: only statically encoded calls that land exactly on an import slot are attributed. On `notepad.exe`, xref v2 decodes 3,285 calls, attributes 1,606 sites across 295 APIs, and keeps 1,679 unresolved direct targets visible. Indirect calls are counted, never guessed. Unsupported instruction bytes and unresolved targets remain visible in the ledger.
@@ -92,6 +94,7 @@ The xref trust boundary is explicit: only statically encoded calls that land exa
 | [NaIWaniubi/moonseek](https://github.com/NaIWaniubi/moonseek) | 0.17.5 | full-text indexing and ranking | Apache-2.0 |
 | [Han-Wentao/moonplist](https://github.com/Han-Wentao/moonplist) | 0.1.1 | bounded Apple plist parsing | Apache-2.0 |
 | [clbbbb/moonbit-wasm-inspect](https://github.com/clbbbb/moonbit-wasm-inspect) | 0.1.0 | WASM section/import/export inspection | Apache-2.0 |
+| [moonbitlang/x](https://github.com/moonbitlang/x) | 0.5.6 | crypto, filesystem, system utilities | Apache-2.0 |
 
 MoonForge itself is Apache-2.0.
 
@@ -121,7 +124,7 @@ MoonForge 把 PE / ELF / Mach-O / Info.plist / WASM 变成统一、带来源定�
 ## 快速开始
 
 ```bash
-moon install
+moon update
 moon check --deny-warn
 moon test -j 1
 
@@ -144,7 +147,7 @@ cd web
 python -m http.server 8080
 ```
 
-打开 `http://127.0.0.1:8080`，拖入一个或多个文件即可查看结构、xref v2 账本、old/new diff、bundle profile、WASM 节表、跨文件检索，并导出 canonical JSON。多文件协议版本为 `moonforge-v2`，旧单文件协议保持兼容。
+打开 `http://127.0.0.1:8080`，拖入一个或多个文件即可查看结构、xref v2 账本、old/new diff、bundle profile、WASM 节表、跨文件检索；粘贴 policy JSON 后可看到 PASS/BLOCK 与违规明细，并导出 canonical JSON。多文件协议版本为 `moonforge-v2`，旧单文件协议保持兼容。
 
 ## 为什么不是“又一个解析器包装”
 
@@ -160,12 +163,13 @@ python -m http.server 8080
 
 | 检查 | 结果 |
 |---|---|
-| MoonBit 单测 | **44/44** |
-| WASM 工作台断言 | **21/21**，真实 PE/plist/WASM 输入 |
+| MoonBit 单测 | **54/54** |
+| WASM 工作台断言 | **24/24**，真实 PE/plist/WASM 输入 |
 | 变异鲁棒性 | **10,000 输入，0 失败** |
 | 外部交叉核对 | PE 节数与 `objdump -h` 一致；导入语义差异已注明 |
-| CLI 契约 | stdout 为机器可读 JSON；gate 退出码 0/1/2 已验证 |
+| CLI 契约 | 成功与错误 stdout 均为机器可读 JSON；gate 退出码 0/1/2 已验证 |
 | 确定性 | 重复 canonical JSON 字节一致 |
+| 基准门禁 | 默认 p95 ≤ 150 ms，可用 `MOONFORGE_BENCH_P95_MS` 覆盖 |
 | CI | 记录实际安装的 MoonBit 版本；覆盖 check/test/native/wasm/mutation/cross-check/benchmark |
 
 xref 信任边界写明：只归因精确落在导入槽上的静态编码调用。notepad.exe 上 xref v2 解码 3,285 条调用，归因 1,606 个站点、295 个 API，并保留 1,679 个未解析直接目标。间接调用只计数，不猜目标；不支持的指令字节与未解析目标保留在账目中。
@@ -179,6 +183,7 @@ xref 信任边界写明：只归因精确落在导入槽上的静态编码调用
 | [NaIWaniubi/moonseek](https://github.com/NaIWaniubi/moonseek) | 0.17.5 | 全文索引与排序 | Apache-2.0 |
 | [Han-Wentao/moonplist](https://github.com/Han-Wentao/moonplist) | 0.1.1 | 有界 Apple plist 解析 | Apache-2.0 |
 | [clbbbb/moonbit-wasm-inspect](https://github.com/clbbbb/moonbit-wasm-inspect) | 0.1.0 | WASM 节表/导入导出检查 | Apache-2.0 |
+| [moonbitlang/x](https://github.com/moonbitlang/x) | 0.5.6 | crypto、文件系统、系统工具 | Apache-2.0 |
 
 MoonForge 本体采用 Apache-2.0。
 

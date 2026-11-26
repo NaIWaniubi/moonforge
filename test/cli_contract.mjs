@@ -1,16 +1,18 @@
-// CLI machine-contract checks: stdout is JSON, stderr is for humans, exit
-// codes are stable. Usage: node test/cli_contract.mjs
+// CLI machine-contract checks: stdout is JSON for both success and failure,
+// exit codes are stable. Usage: node test/cli_contract.mjs
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const main = resolve(root, "_build/native/debug/build/cmd/main/main.exe");
 const diff = resolve(root, "_build/native/debug/build/cmd/diff/diff.exe");
 const gate = resolve(root, "_build/native/debug/build/cmd/gate/gate.exe");
 const oldFacts = resolve(root, "fixtures_breadth/old-facts.json");
 const newFacts = resolve(root, "fixtures_breadth/new-facts.json");
 const policy = resolve(root, "fixtures_breadth/policy.json");
+const emptyPolicy = resolve(root, "fixtures_breadth/policy-empty.json");
 
 let failures = 0;
 function check(name, ok, detail = "") {
@@ -38,6 +40,24 @@ try { gj = JSON.parse(g.stdout); } catch {}
 check("gate exits 1 on policy violation", g.status === 1, String(g.status));
 check("gate stdout is JSON", !!gj && gj.passed === false);
 check("gate reports the matching rule", gj?.violations?.[0]?.rule_id === "no-new-kernel32-import");
+
+const pass = spawnSync(gate, [oldFacts, newFacts, emptyPolicy], { encoding: "utf8" });
+let passJson;
+try { passJson = JSON.parse(pass.stdout); } catch {}
+check("gate exits 0 on clean policy", pass.status === 0, String(pass.status));
+check("gate pass stdout is JSON", passJson?.passed === true);
+
+const usage = spawnSync(main, [], { encoding: "utf8" });
+let usageJson;
+try { usageJson = JSON.parse(usage.stdout); } catch {}
+check("usage error exits 2", usage.status === 2, String(usage.status));
+check("usage error stdout is JSON", typeof usageJson?.error === "string" && usageJson.error.includes("usage:"));
+
+const invalid = spawnSync(diff, [oldFacts, policy], { encoding: "utf8" });
+let invalidJson;
+try { invalidJson = JSON.parse(invalid.stdout); } catch {}
+check("invalid fact-set exits 2", invalid.status === 2, String(invalid.status));
+check("invalid fact-set stdout is JSON", typeof invalidJson?.error === "string" && invalidJson.error.includes("invalid new fact set"));
 
 console.log(`CLI contract: ${failures} failures`);
 process.exit(failures === 0 ? 0 : 1);

@@ -37,7 +37,7 @@ MoonForge 做的是这条证据链：PE / ELF / Mach-O / Info.plist / WASM 先�
 
 notepad.exe 上，xref v2 解码 **3,285** 条调用，精确归因 **1,606** 个站点、**295** 个 API；未命中的 **1,679** 个直接目标保留为 unresolved，不猜。每个归因目标都真实存在于 IAT 槽表中。
 
-质量证据：**44/44** MoonBit 单测；真实 PE/plist/WASM 输入下 **21/21** wasm 断言；固定种子 **10,000** 个截断/位变异输入 **0 panic、0 hang**；PE 节数与 `objdump -h` 一致；CLI stdout 始终为机器可读 JSON，gate 退出码严格为 0/1/2；重复运行 canonical JSON 字节一致。
+质量证据：**54/54** MoonBit 单测；真实 PE/plist/WASM 输入下 **24/24** wasm 断言；固定种子 **10,000** 个截断/位变异输入 **0 panic、0 hang**；PE 节数与 `objdump -h` 一致；CLI 成功与错误 stdout 均为机器可读 JSON，gate 退出码严格为 0/1/2；重复运行 canonical JSON 字节一致；基准 p95 默认门限 150 ms。
 
 边界写明：目前只归因 `E8 rel32` 和 `FF 15 rip-rel32`；线性扫描可能被代码/数据混排误导，拒绝字节会进入账目；bundle profile 配对 Mach-O 与 Info.plist，不解包任意 ipa；policy 是小型声明式语言，不是通用编程语言。
 
@@ -54,6 +54,7 @@ notepad.exe 上，xref v2 解码 **3,285** 条调用，精确归因 **1,606** �
 | NaIWaniubi/moonseek | 0.17.5 | 全文索引与排序 | Apache-2.0 |
 | Han-Wentao/moonplist | 0.1.1 | Apple plist 有界解析 | Apache-2.0 |
 | clbbbb/moonbit-wasm-inspect | 0.1.0 | WASM 节表/导入导出检查 | Apache-2.0 |
+| moonbitlang/x | 0.5.6 | crypto、文件系统、系统工具 | Apache-2.0 |
 
 MoonForge 本体 Apache-2.0。与 `Lyhdsba/moonforge`（增量构建任务运行器）无功能交集，mooncakes 按作者命名空间区分。
 

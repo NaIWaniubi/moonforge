@@ -172,3 +172,27 @@ test "xref v2: skips REX prefixes before FF15" {
   assert_eq(report.sites[0].target_addr, 0x1007L)
   assert_eq(report.sites[0].rule, "FF15-rip-rel32")
 }
+
+///|
+test "xref v2: truncated tail is counted as refused bytes" {
+  let code : Bytes = Bytes::from_array(
+    [0xE8, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x15, 0x00].map(fn(v) { v.to_byte() }),
+  )
+  let report = build_xref_v2([{ name: ".text", base: 0x1000L, code, }], [
+    (0x1005L, "Api"),
+  ])
+  assert_eq(report.sites.length(), 1)
+  assert_true(report.refused_bytes >= 3)
+}
+
+///|
+test "xref v2: address-size override is refused instead of misattributed" {
+  let code : Bytes = Bytes::from_array(
+    [0x67, 0xFF, 0x15, 0x00, 0x00, 0x00, 0x00].map(fn(v) { v.to_byte() }),
+  )
+  let report = build_xref_v2([{ name: ".text", base: 0x1000L, code, }], [
+    (0x1007L, "Api"),
+  ])
+  assert_eq(report.sites.length(), 0)
+  assert_eq(report.indirect_calls, 1)
+}

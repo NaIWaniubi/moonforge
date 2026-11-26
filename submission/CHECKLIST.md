@@ -3,13 +3,15 @@
 ## 代码与质量
 
 - [x] `moon check --deny-warn` 通过
-- [x] `moon test -j 1`：44/44
+- [x] `moon test -j 1`：54/54
 - [x] native CLI：main / bundle / wasmcheck / diff / gate 全部构建
-- [x] wasm workbench 构建并通过 21/21 Node 断言
+- [x] wasm workbench 构建并通过 24/24 Node 断言
 - [x] 10,000 个变异输入：0 panic / 0 hang
 - [x] objdump PE 节数交叉核对通过
-- [x ] CLI stdout / SARIF / gate 退出码契约通过
+- [x] CLI stdout / SARIF / gate 退出码 0/1/2 契约通过
+- [x] SARIF 2.1.0 官方 schema 校验通过
 - [x] `moon fmt --check` 通过
+- [x] 基准 p95 门禁通过（14.02 ms ≤ 150 ms）
 - [x] clean clone 复现脚本已提供
 
 ## 交付物
@@ -20,7 +22,8 @@
 - [ ] 用户本人重写 `PROPOSAL.md`，确保不是 AI 文案
 - [ ] 生成并人工核验 `submission/PROPOSAL.pdf` 为一页 A4
 - [ ] GitHub Pages 部署并返回 200
-- [ ] 真实 Chrome 拖放 / diff / 导出验收
+- [x] 本地真实 Chrome 拖放 / diff / policy gate / 导出验收
+- [ ] Pages 真实 Chrome 复验
 - [ ] 发布 mooncakes 0.2.0 并保存 `moon view` 证据
 - [ ] CI 实时全绿并截图
 

@@ -375,8 +375,15 @@ fn call_target_bytes(
   len : Int32,
 ) -> (Int64, String)? {
   let mut at = 0
+  let mut address_size_override = false
   while at < len && is_prefix(data[at].to_int()) {
+    if data[at].to_int() == 0x67 {
+      address_size_override = true
+    }
     at = at + 1
+  }
+  if address_size_override {
+    return None
   }
   if at + 5 <= len && data[at].to_int() == 0xE8 {
     Some((addr + (at + 5).to_int64() + disp32(data, at + 1), "E8-rel32"))
@@ -408,7 +415,12 @@ pub fn build_xref_v2(
       section.base,
       section.code.length() + 1,
     )
+    let mut covered : Int64 = 0L
     for ins in insns {
+      let end = ins.addr + ins.len.to_int64() - section.base
+      if end > covered {
+        covered = end
+      }
       if ins.mnemonic == ".byte" {
         refused_bytes = refused_bytes + ins.len
         continue
@@ -437,6 +449,10 @@ pub fn build_xref_v2(
         }
         None => indirect_calls = indirect_calls + 1
       }
+    }
+    if covered < section.code.length().to_int64() {
+      refused_bytes = refused_bytes +
+        (section.code.length().to_int64() - covered).to_int()
     }
   }
   let counts : Array[(String, Int32)] = []
