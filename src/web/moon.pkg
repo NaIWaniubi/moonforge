@@ -5,6 +5,11 @@ import {
   "NaIWaniubi/moonforge/src/xref",
   "NaIWaniubi/moonforge/src/peinfo",
   "NaIWaniubi/moonforge/src/corpus",
+  "NaIWaniubi/moonforge/src/bundle",
+  "NaIWaniubi/moonforge/src/wasmcheck",
+  "NaIWaniubi/moonforge/src/evidence",
+  "NaIWaniubi/moonforge/src/diff",
+  "moonbitlang/core/json",
   "moonbitlang/x/fs",
   "moonbitlang/core/env",
 }

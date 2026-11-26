@@ -72,5 +72,20 @@ check("non-PE format is unknown", j3.format === "unknown", j3.format);
 check("non-PE has no xref block", j3.xref === null, String(j3.xref));
 check("non-PE text still searchable", j3.matches && j3.matches.length === 1, String(j3.matches && j3.matches.length));
 
+// 5. v2 multi-artifact protocol: real PE + plist + WASM in one run.
+const plistBytes = readFileSync(resolve(root, "fixtures_breadth/Info.plist"));
+const wasmBytes = readFileSync(resolve(root, "fixtures_breadth/minimal.wasm"));
+const r4 = runtime.run(
+  { "dbg.exe": sample, "Info.plist": plistBytes, "minimal.wasm": wasmBytes },
+  ["moonforge-web-v2", "dbg.exe", "Info.plist", "minimal.wasm", "--query", "Bundle"],
+);
+const j4 = JSON.parse(r4.stdout);
+check("v2 protocol marker", j4.protocol === "moonforge-v2", j4.protocol);
+check("v2 returns every artifact", Array.isArray(j4.artifacts) && j4.artifacts.length === 3, String(j4.artifacts?.length));
+check("v2 PE carries xref v2 ledger", j4.artifacts?.[0]?.xref_v2?.ledger?.decoded_calls > 0, String(j4.artifacts?.[0]?.xref_v2?.ledger?.decoded_calls));
+check("v2 WASM artifact carries section report", Array.isArray(j4.artifacts?.[2]?.wasm), String(j4.artifacts?.[2]?.wasm?.length));
+check("v2 two artifacts produce a diff", j4.diff && typeof j4.diff === "object");
+check("v2 search spans artifacts", Array.isArray(j4.matches));
+
 console.log(failures === 0 ? "\nWASM WORKBENCH PASS" : "\nWASM WORKBENCH FAIL (" + failures + ")");
 process.exit(failures === 0 ? 0 : 1);

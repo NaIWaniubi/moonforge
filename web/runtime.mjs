@@ -1,12 +1,11 @@
 // moonforge wasm runtime: the MoonBit wasm host protocol.
 //
-//   __moonbit_fs_unstable  — virtual fs (one file, "input.bin"), argv, and the
-//                            externref streaming handles moonbitlang/x uses.
-//   wasi_snapshot_preview1.fd_write — captures stdout/stderr.
-//   __moonbit_sys_unstable.exit     — records the exit code, unwinds _start.
+// Two call shapes are supported:
+//   runtime.run(Uint8Array, argv)                 legacy single-file protocol
+//   runtime.run({ "name.bin": Uint8Array, ... }, argv)  v2 multi-artifact protocol
 //
-// Each run instantiates a fresh module, so runs are independent. The page and
-// the node test both load this file — one runtime, no drift.
+// The virtual filesystem is per-run, so browser and Node tests share exactly
+// the same host glue and cannot leak state between analyses.
 
 export function createRuntime(module) {
   function importsFor(state) {
@@ -72,12 +71,17 @@ export function createRuntime(module) {
           return state.argv;
         },
         read_file_to_bytes_new(path) {
-          if (path === state.path) return 0;
-          state.error = "no such file: " + path;
-          return -1;
+          const bytes = state.files[path];
+          if (!bytes) {
+            state.error = "no such file: " + path;
+            return -1;
+          }
+          state.currentPath = path;
+          state.currentInput = bytes;
+          return 0;
         },
         get_file_content() {
-          return state.input;
+          return state.currentInput || new Uint8Array();
         },
         get_error_message() {
           return state.error;
@@ -88,10 +92,13 @@ export function createRuntime(module) {
 
   return {
     run(input, argv) {
+      const files = input instanceof Uint8Array ? { "input.bin": input } : input || {};
+      const names = Object.keys(files);
       const state = {
-        input: input,
+        files,
+        currentPath: names[0] || "input.bin",
+        currentInput: files[names[0]] || new Uint8Array(),
         argv: argv || ["moonforge-web", "input.bin"],
-        path: "input.bin",
         error: "",
         stdout: [],
         stderr: [],
