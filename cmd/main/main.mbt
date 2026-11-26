@@ -1,10 +1,5 @@
-// main: `moonforge scan <dir> [--out file]`
-//
-// Walks a directory, hashes and profiles every regular file, and writes the
-// canonical manifest. Directories are walked depth-first; symlinks are read as
-// their target content (no recursion minidesc needed: read_dir returns entries,
-// and a symlinked directory is reported by is_dir, which we skip unless it is
-// the root).
+// main: unified MoonForge CLI. Filesystem access lives here; all analysis
+// packages remain pure and wasm-compilable.
 
 ///|
 fn join(a : String, b : String) -> String {
@@ -20,13 +15,11 @@ fn join(a : String, b : String) -> String {
 }
 
 ///|
-/// Depth-first file collection. Returns paths relative to `root_prefix`.
 fn collect(root : String, dir : String, prefix : String) -> Array[String] {
   let out : Array[String] = []
   let entries = @fs.read_dir(join(root, dir)) catch {
     @fs.IOError(_) => return out
   }
-  // Sort for a stable manifest: two runs over the same tree must byte-match.
   let sorted : Array[String] = []
   for name in entries {
     sorted.push(name)
@@ -49,20 +42,109 @@ fn collect(root : String, dir : String, prefix : String) -> Array[String] {
 
 ///|
 fn usage() -> Unit {
-  let lines : Array[String] = [
-    "usage: moonforge scan <dir> [--out <file>]", "", "Scans a directory and writes a manifest of every file:",
-    "container format, size, sha256, and section/symbol/import/export counts.", "Files whose magic is not PE / ELF / Mach-O are recorded as `unknown`",
-    "and are never handed to a parser.", "", "usage: moonforge xref <file.exe> [--out <file>]",
-    "", "Resolves imported-API call sites in one PE: which import is called from",
-    "where. Only statically-encoded `call rel32` participates; indirect calls", "are counted, not guessed.",
-    "", "usage: moonforge search <dir> <query...> [--limit N]", "", "Indexes the printable text of every file under <dir> and ranks them for",
-    "the query. Each hit carries a snippet around the match.",
-  ]
-  println(lines.join("\n"))
+  println(
+    [
+      "usage: moonforge <command> [args]", "", "commands:", "  scan <dir> [--out <file>]",
+      "  xref <file.exe> [--out <file>]", "  xref-v2 <file.exe> [--out <file>]",
+      "  search <dir> <query...> [--limit N]", "  bundle <macho> [Info.plist]", "  wasmcheck <module.wasm>",
+      "  diff <old.json> <new.json> [--format json|sarif]", "  gate <old.json> <new.json> <policy.json>",
+    ].join("\n"),
+  )
 }
 
 ///|
-fn run_xref(argv : Array[String]) -> Unit raise {
+fn read_bytes(path : String) -> Bytes {
+  @fs.read_file_to_bytes(path) catch {
+    @fs.IOError(message) => {
+      println("moonforge: cannot read " + path + ": " + message)
+      @sys.exit(2)
+      Bytes::from_array([])
+    }
+  }
+}
+
+///|
+fn read_string(path : String) -> String {
+  @fs.read_file_to_string(path) catch {
+    @fs.IOError(message) => {
+      println("moonforge: cannot read " + path + ": " + message)
+      @sys.exit(2)
+      ""
+    }
+  }
+}
+
+///|
+fn write_or_print(text : String, out_path : String?) -> Unit {
+  match out_path {
+    Some(path) =>
+      @fs.write_string_to_file(path, text) catch {
+        @fs.IOError(message) => {
+          println("moonforge: cannot write " + path + ": " + message)
+          @sys.exit(2)
+        }
+      }
+    None => println(text)
+  }
+}
+
+///|
+fn parse_int(text : String) -> Int32? {
+  if text.length() == 0 {
+    return None
+  }
+  let mut value = 0
+  let mut i = 0
+  while i < text.length() {
+    let c = text[i].to_int()
+    if c < 48 || c > 57 {
+      return None
+    }
+    value = value * 10 + (c - 48)
+    i = i + 1
+  }
+  Some(value)
+}
+
+///|
+fn run_scan(argv : Array[String]) -> Unit {
+  if argv.length() < 3 {
+    usage()
+    @sys.exit(2)
+  }
+  let root = argv[2]
+  let mut out_path : String? = None
+  let mut i = 3
+  while i < argv.length() {
+    if argv[i] == "--out" && i + 1 < argv.length() {
+      out_path = Some(argv[i + 1])
+      i = i + 2
+    } else {
+      println("moonforge scan: unexpected argument " + argv[i])
+      @sys.exit(2)
+    }
+  }
+  let root_is_dir = @fs.is_dir(root) catch { @fs.IOError(_) => false }
+  if !root_is_dir {
+    println("moonforge scan: not a directory: " + root)
+    @sys.exit(2)
+  }
+  let paths = collect(root, "", "")
+  let manifest = @core.Manifest::new()
+  let mut unknown = 0
+  for rel in paths {
+    let data = read_bytes(join(root, rel))
+    let rec = @core.record_of_bytes(rel, data)
+    if rec.format == @core.Unknown {
+      unknown = unknown + 1
+    }
+    manifest.push(rec)
+  }
+  write_or_print(manifest.to_json(), out_path)
+}
+
+///|
+fn run_xref(argv : Array[String], v2 : Bool) -> Unit {
   if argv.length() < 3 {
     usage()
     @sys.exit(2)
@@ -75,35 +157,18 @@ fn run_xref(argv : Array[String]) -> Unit raise {
       out_path = Some(argv[i + 1])
       i = i + 2
     } else {
-      println("moonforge xref: unexpected argument '" + argv[i] + "'")
+      println("moonforge xref: unexpected argument " + argv[i])
       @sys.exit(2)
     }
   }
-  let data = @fs.read_file_to_bytes(path) catch {
-    @fs.IOError(msg) => {
-      println("moonforge xref: cannot read " + path + ": " + msg)
-      @sys.exit(2)
-      Bytes::from_array([])
-    }
+  let data = read_bytes(path)
+  if v2 {
+    let report = @peinfo.xref_v2_of(data)
+    write_or_print(report.to_json(), out_path)
+  } else {
+    let table = @peinfo.xref_of(data)
+    write_or_print(table.to_json(), out_path)
   }
-  let table = @peinfo.xref_of(data)
-  let slots_n = @peinfo.slot_count(data)
-  let json = table.to_json()
-  match out_path {
-    Some(p) => @fs.write_string_to_file(p, json)
-    None => println(json)
-  }
-  println(
-    "xref: " +
-    slots_n.to_string() +
-    " IAT slots, " +
-    table.sites.length().to_string() +
-    " resolved call sites, " +
-    table.unresolved.to_string() +
-    " unresolved, " +
-    table.indirect_calls.to_string() +
-    " indirect",
-  )
 }
 
 ///|
@@ -114,10 +179,18 @@ fn run_search(argv : Array[String]) -> Unit {
   }
   let root = argv[2]
   let mut query = ""
-  let limit : Int32 = 10
+  let mut limit : Int32 = 10
   let mut i = 3
   while i < argv.length() {
-    if false {
+    if argv[i] == "--limit" && i + 1 < argv.length() {
+      limit = match parse_int(argv[i + 1]) {
+        Some(value) => value
+        None => {
+          println("moonforge search: invalid limit " + argv[i + 1])
+          @sys.exit(2)
+          10
+        }
+      }
       i = i + 2
     } else {
       if query.length() > 0 {
@@ -135,14 +208,11 @@ fn run_search(argv : Array[String]) -> Unit {
   if !root_is_dir {
     println("moonforge search: not a directory: " + root)
     @sys.exit(2)
-    return
   }
   let paths = collect(root, "", "")
   let docs : Array[@corpus.CorpusDoc] = []
   for rel in paths {
-    let data = @fs.read_file_to_bytes(join(root, rel)) catch {
-      @fs.IOError(_) => continue
-    }
+    let data = read_bytes(join(root, rel))
     docs.push({ path: rel, text: @corpus.strings_of(data, 4), })
   }
   let idx = @corpus.new_index()
@@ -155,89 +225,138 @@ fn run_search(argv : Array[String]) -> Unit {
     }
   }
   println(@corpus.results_to_json(hits, docs, query))
-  println(
-    "search: " +
-    hits.length().to_string() +
-    " hits over " +
-    docs.length().to_string() +
-    " files",
-  )
 }
 
 ///|
-fn main raise {
-  let argv = @env.args()
+fn run_bundle(argv : Array[String]) -> Unit {
   if argv.length() < 3 {
     usage()
     @sys.exit(2)
   }
-  if argv[1] == "search" {
-    run_search(argv)
-    return
-  }
-  if argv[1] == "xref" {
-    run_xref(argv)
-    return
-  }
-  if argv[1] != "scan" {
-    println("moonforge: unknown command '" + argv[1] + "'")
+  let macho = read_bytes(argv[2])
+  let plist = if argv.length() >= 4 { Some(read_bytes(argv[3])) } else { None }
+  println(@bundle.bundle_profile(macho, plist).to_json())
+}
+
+///|
+fn run_wasmcheck(argv : Array[String]) -> Unit {
+  if argv.length() < 3 {
     usage()
     @sys.exit(2)
   }
-  let root = argv[2]
-  let mut out_path : String? = None
-  let mut i = 3
-  while i < argv.length() {
-    if argv[i] == "--out" && i + 1 < argv.length() {
-      out_path = Some(argv[i + 1])
-      i = i + 2
-    } else if argv[i] == "--help" {
-      usage()
-      @sys.exit(0)
-    } else {
-      println("moonforge: unexpected argument '" + argv[i] + "'")
+  let data = read_bytes(argv[2])
+  match @wasmcheck.wasm_report(data) {
+    Ok(sections) => println(@wasmcheck.sections_to_json(sections))
+    Err(error) => {
+      println("moonforge wasmcheck: " + error)
       @sys.exit(2)
     }
   }
-  let root_is_dir = @fs.is_dir(root) catch { @fs.IOError(_) => false }
-  if !root_is_dir {
-    println("moonforge: not a directory: " + root)
+}
+
+///|
+fn run_diff(argv : Array[String]) -> Unit {
+  if argv.length() < 4 {
+    usage()
     @sys.exit(2)
   }
-  let paths = collect(root, "", "")
-  let manifest = @core.Manifest::new()
-  let mut unknown = 0
-  for rel in paths {
-    let data = @fs.read_file_to_bytes(join(root, rel)) catch {
-      @fs.IOError(msg) => {
-        println("moonforge: skip " + rel + ": " + msg)
-        continue
-      }
+  let mut format = "json"
+  let mut i = 4
+  while i < argv.length() {
+    if argv[i] == "--format" && i + 1 < argv.length() {
+      format = argv[i + 1]
+      i = i + 2
+    } else {
+      println("moonforge diff: unexpected argument " + argv[i])
+      @sys.exit(2)
     }
-    let rec = @core.record_of_bytes(rel, data)
-    if rec.format == @core.Unknown {
-      unknown = unknown + 1
-    }
-    manifest.push(rec)
   }
-  let text = manifest.to_json()
-  match out_path {
-    Some(path) => {
-      @fs.write_string_to_file(path, text) catch {
-        @fs.IOError(msg) => {
-          println("moonforge: cannot write " + path + ": " + msg)
-          @sys.exit(2)
-        }
-      }
-      println(
-        "scan: " +
-        manifest.files.length().to_string() +
-        " files (" +
-        unknown.to_string() +
-        " unknown) -> " +
-        path,
-      )
+  let old = match @diff.FactSet::from_json(read_string(argv[2])) {
+    Ok(value) => value
+    Err(error) => {
+      println("moonforge diff: invalid old fact set: " + error)
+      @sys.exit(2)
+      { artifact_hash: "", facts: [], }
     }
-    None => println(text)
+  }
+  let new = match @diff.FactSet::from_json(read_string(argv[3])) {
+    Ok(value) => value
+    Err(error) => {
+      println("moonforge diff: invalid new fact set: " + error)
+      @sys.exit(2)
+      { artifact_hash: "", facts: [], }
+    }
+  }
+  let report = @diff.diff(old, new)
+  if format == "sarif" {
+    println(report.to_sarif())
+  } else if format == "json" {
+    println(report.to_json())
+  } else {
+    println("moonforge diff: unknown format " + format)
+    @sys.exit(2)
+  }
+}
+
+///|
+fn run_gate(argv : Array[String]) -> Unit {
+  if argv.length() < 5 {
+    usage()
+    @sys.exit(2)
+  }
+  let old = match @diff.FactSet::from_json(read_string(argv[2])) {
+    Ok(value) => value
+    Err(error) => {
+      println("moonforge gate: invalid old fact set: " + error)
+      @sys.exit(2)
+      { artifact_hash: "", facts: [], }
+    }
+  }
+  let new = match @diff.FactSet::from_json(read_string(argv[3])) {
+    Ok(value) => value
+    Err(error) => {
+      println("moonforge gate: invalid new fact set: " + error)
+      @sys.exit(2)
+      { artifact_hash: "", facts: [], }
+    }
+  }
+  let policy = match @policy.parse_policy(read_string(argv[4])) {
+    Ok(value) => value
+    Err(error) => {
+      println("moonforge gate: invalid policy: " + error)
+      @sys.exit(2)
+      { rules: [], }
+    }
+  }
+  let result = @policy.evaluate(@diff.diff(old, new), policy)
+  println(result.to_json())
+  if result.passed {
+    @sys.exit(0)
+  } else {
+    @sys.exit(1)
+  }
+}
+
+///|
+fn main {
+  let argv = @env.args()
+  if argv.length() < 2 {
+    usage()
+    @sys.exit(2)
+  }
+  match argv[1] {
+    "scan" => run_scan(argv)
+    "xref" => run_xref(argv, false)
+    "xref-v2" => run_xref(argv, true)
+    "search" => run_search(argv)
+    "bundle" => run_bundle(argv)
+    "wasmcheck" => run_wasmcheck(argv)
+    "diff" => run_diff(argv)
+    "gate" => run_gate(argv)
+    _ => {
+      println("moonforge: unknown command '" + argv[1] + "'")
+      usage()
+      @sys.exit(2)
+    }
   }
 }
