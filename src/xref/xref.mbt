@@ -283,3 +283,194 @@ fn escape(s : String) -> String {
   }
   String::from_array(out)
 }
+
+// ─── xref v2: section-aware, byte-derived call evidence ──────────────────────
+
+///| One executable section supplied by the format adapter.
+pub(all) struct XrefSection {
+  name : String
+  base : Int64
+  code : Bytes
+} derive(Debug)
+
+///| One attributed call site with enough provenance to audit the decision.
+pub(all) struct XrefSiteV2 {
+  api : String
+  call_addr : Int64
+  target_addr : Int64
+  section : String
+  rva : Int64
+  instruction_bytes : Array[Int]
+  rule : String
+} derive(Debug)
+
+///| Complete call ledger. The core invariant is:
+/// `decoded_calls = sites.length + unresolved_direct + indirect_calls`.
+pub(all) struct XrefReportV2 {
+  sites : Array[XrefSiteV2]
+  by_api : Array[(String, Int)]
+  decoded_calls : Int
+  refused_bytes : Int
+  direct_calls : Int
+  indirect_calls : Int
+  unresolved_direct : Int
+  sections_scanned : Int
+} derive(Debug)
+
+fn byte_ints(data : Bytes) -> Array[Int] {
+  let out : Array[Int] = []
+  for b in data {
+    out.push(b.to_int())
+  }
+  out
+}
+
+fn disp32(data : Bytes, at : Int) -> Int64 {
+  let value = data[at].to_int() |
+    (data[at + 1].to_int() << 8) |
+    (data[at + 2].to_int() << 16) |
+    (data[at + 3].to_int() << 24)
+  if (value & 0x80000000) != 0 {
+    value.to_int64() - 0x100000000L
+  } else {
+    value.to_int64()
+  }
+}
+
+///| Derive a static call target from the encoded instruction bytes, not from
+/// the disassembler's display string. Only E8 rel32 and FF 15 rip-rel32 are
+/// accepted; every other call shape stays indirect.
+fn call_target_bytes(data : Bytes, addr : Int64, len : Int) -> (Int64, String)? {
+  if len >= 5 && data[0].to_int() == 0xE8 {
+    Some((addr + 5L + disp32(data, 1), "E8-rel32"))
+  } else if len >= 6 && data[0].to_int() == 0xFF && data[1].to_int() == 0x15 {
+    Some((addr + 6L + disp32(data, 2), "FF15-rip-rel32"))
+  } else {
+    None
+  }
+}
+
+///| Section-aware xref. Each section is decoded independently so a multi-text
+/// image never concatenates addresses from different bases.
+pub fn build_xref_v2(
+  sections : Array[XrefSection],
+  slots : Array[(Int64, String)],
+) -> XrefReportV2 {
+  let sites : Array[XrefSiteV2] = []
+  let mut decoded_calls = 0
+  let mut refused_bytes = 0
+  let mut direct_calls = 0
+  let mut indirect_calls = 0
+  let mut unresolved_direct = 0
+  for section in sections {
+    let insns = @disasm.disassemble(section.code, section.base, section.code.length() + 1)
+    for ins in insns {
+      if ins.mnemonic == ".byte" {
+        refused_bytes = refused_bytes + ins.len
+        continue
+      }
+      if ins.mnemonic != "call" {
+        continue
+      }
+      decoded_calls = decoded_calls + 1
+      match call_target_bytes(ins.bytes, ins.addr, ins.len) {
+        Some((target, rule)) => {
+          direct_calls = direct_calls + 1
+          let i = slot_index(slots, target)
+          if i >= 0 {
+            sites.push({
+              api: slots[i].1,
+              call_addr: ins.addr,
+              target_addr: target,
+              section: section.name,
+              rva: ins.addr - section.base,
+              instruction_bytes: byte_ints(ins.bytes),
+              rule,
+            })
+          } else {
+            unresolved_direct = unresolved_direct + 1
+          }
+        }
+        None => indirect_calls = indirect_calls + 1
+      }
+    }
+  }
+  let counts : Array[(String, Int)] = []
+  for site in sites {
+    let mut found = false
+    for i = 0; i < counts.length(); i = i + 1 {
+      if counts[i].0 == site.api {
+        counts[i] = (counts[i].0, counts[i].1 + 1)
+        found = true
+        break
+      }
+    }
+    if !(found) {
+      counts.push((site.api, 1))
+    }
+  }
+  counts.sort_by(fn(a, b) { a.0.compare(b.0) })
+  {
+    sites,
+    by_api: counts,
+    decoded_calls,
+    refused_bytes,
+    direct_calls,
+    indirect_calls,
+    unresolved_direct,
+    sections_scanned: sections.length(),
+  }
+}
+
+fn json_array_ints(values : Array[Int]) -> String {
+  let parts : Array[String] = []
+  for value in values {
+    parts.push(value.to_string())
+  }
+  "[" + parts.join(",") + "]"
+}
+
+///| Canonical JSON for the v2 ledger.
+pub fn XrefReportV2::to_json(self : XrefReportV2) -> String {
+  let counts : Array[String] = []
+  for pair in self.by_api {
+    counts.push("{\"api\":\"" + escape(pair.0) + "\",\"count\":" + pair.1.to_string() + "}")
+  }
+  let sites : Array[String] = []
+  for site in self.sites {
+    sites.push(
+      "{\"api\":\"" +
+      escape(site.api) +
+      "\",\"call\":" +
+      site.call_addr.to_string() +
+      ",\"target\":" +
+      site.target_addr.to_string() +
+      ",\"section\":\"" +
+      escape(site.section) +
+      "\",\"rva\":" +
+      site.rva.to_string() +
+      ",\"bytes\":" +
+      json_array_ints(site.instruction_bytes) +
+      ",\"rule\":\"" +
+      escape(site.rule) +
+      "\"}",
+    )
+  }
+  "{\"by_api\":[" +
+  counts.join(",") +
+  "],\"sites\":[" +
+  sites.join(",") +
+  "],\"ledger\":{\"decoded_calls\":" +
+  self.decoded_calls.to_string() +
+  ",\"refused_bytes\":" +
+  self.refused_bytes.to_string() +
+  ",\"direct_calls\":" +
+  self.direct_calls.to_string() +
+  ",\"indirect_calls\":" +
+  self.indirect_calls.to_string() +
+  ",\"unresolved_direct\":" +
+  self.unresolved_direct.to_string() +
+  ",\"sections_scanned\":" +
+  self.sections_scanned.to_string() +
+  "}}"
+}

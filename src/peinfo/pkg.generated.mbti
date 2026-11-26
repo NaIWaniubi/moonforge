@@ -10,6 +10,8 @@ pub fn slot_count(Bytes) -> Int32
 
 pub fn xref_of(Bytes) -> @xref.XrefTable
 
+pub fn xref_v2_of(Bytes) -> @xref.XrefReportV2
+
 // Errors
 
 // Types and methods

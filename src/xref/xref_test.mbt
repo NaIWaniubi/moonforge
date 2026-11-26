@@ -106,3 +106,53 @@ test "json: xref shape carries the honesty fields" {
   assert_true(json.contains("\"indirect_calls\":1"))
   assert_true(json.contains("\"count\":2"))
 }
+
+///|
+/// xref v2 derives targets from bytes and keeps a complete call ledger.
+test "xref v2: byte-derived E8 and FF15 attribution" {
+  let code : Bytes = Bytes::from_array([
+    0xE8, 0x00, 0x00, 0x00, 0x00,
+    0xFF, 0x15, 0x00, 0x00, 0x00, 0x00,
+    0xFF, 0xD0,
+  ].map(fn(v) { v.to_byte() }))
+  let slots : Array[(Int64, String)] = [
+    (0x1005L, "VirtualAlloc"),
+    (0x100BL, "VirtualFree"),
+  ]
+  let report = build_xref_v2([{ name: ".text", base: 0x1000L, code }], slots)
+  assert_eq(report.sites.length(), 2)
+  assert_eq(report.sites[0].api, "VirtualAlloc")
+  assert_eq(report.sites[0].rule, "E8-rel32")
+  assert_eq(report.sites[1].api, "VirtualFree")
+  assert_eq(report.sites[1].rule, "FF15-rip-rel32")
+  assert_eq(report.decoded_calls, 3)
+  assert_eq(report.direct_calls, 2)
+  assert_eq(report.indirect_calls, 1)
+  assert_eq(report.unresolved_direct, 0)
+  assert_eq(
+    report.decoded_calls,
+    report.sites.length() + report.unresolved_direct + report.indirect_calls,
+  )
+}
+
+///|
+/// Every executable section keeps its own base; addresses never leak across
+/// section boundaries.
+test "xref v2: multiple sections retain independent bases" {
+  let a : Bytes = Bytes::from_array([0xE8, 0x00, 0x00, 0x00, 0x00].map(fn(v) { v.to_byte() }))
+  let b : Bytes = Bytes::from_array([0xE8, 0x00, 0x00, 0x00, 0x00].map(fn(v) { v.to_byte() }))
+  let report = build_xref_v2(
+    [
+      { name: ".text", base: 0x1000L, code: a },
+      { name: ".code2", base: 0x2000L, code: b },
+    ],
+    [(0x1005L, "ApiA"), (0x2005L, "ApiB")],
+  )
+  assert_eq(report.sites.length(), 2)
+  assert_eq(report.sites[0].section, ".text")
+  assert_eq(report.sites[0].rva, 0L)
+  assert_eq(report.sites[1].section, ".code2")
+  assert_eq(report.sites[1].rva, 0L)
+  assert_eq(report.sections_scanned, 2)
+}
+

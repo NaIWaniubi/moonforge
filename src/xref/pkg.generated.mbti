@@ -8,6 +8,8 @@ import {
 // Values
 pub fn build_xref(Array[(Int64, String)], Bytes, Int64) -> XrefTable
 
+pub fn build_xref_v2(Array[XrefSection], Array[(Int64, String)]) -> XrefReportV2
+
 pub fn call_target(String, Int64) -> Int64?
 
 pub fn parse_hex(String, Int32) -> Int64?
@@ -22,6 +24,34 @@ pub(all) struct ApiCallSite {
 } derive(Eq, @debug.Debug)
 
 type CallEdge derive(@debug.Debug)
+
+pub(all) struct XrefReportV2 {
+  sites : Array[XrefSiteV2]
+  by_api : Array[(String, Int32)]
+  decoded_calls : Int32
+  refused_bytes : Int32
+  direct_calls : Int32
+  indirect_calls : Int32
+  unresolved_direct : Int32
+  sections_scanned : Int32
+} derive(@debug.Debug)
+pub fn XrefReportV2::to_json(Self) -> String
+
+pub(all) struct XrefSection {
+  name : String
+  base : Int64
+  code : Bytes
+} derive(@debug.Debug)
+
+pub(all) struct XrefSiteV2 {
+  api : String
+  call_addr : Int64
+  target_addr : Int64
+  section : String
+  rva : Int64
+  instruction_bytes : Array[Int32]
+  rule : String
+} derive(@debug.Debug)
 
 pub(all) struct XrefTable {
   by_api : Array[(String, Int32)]

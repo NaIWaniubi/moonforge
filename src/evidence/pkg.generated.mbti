@@ -1,0 +1,65 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "NaIWaniubi/moonforge/src/evidence"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn artifact(String, Bytes, String, String) -> Artifact
+
+pub fn diagnostic(String, String, String, Location?) -> Diagnostic
+
+pub fn fact(String, String, String, Location, String, Array[(String, String)]) -> Fact
+
+pub fn no_location() -> Location
+
+pub fn sha256_hex(Bytes) -> String
+
+// Errors
+
+// Types and methods
+pub(all) struct Artifact {
+  path : String
+  size : Int64
+  sha256 : String?
+  format : String
+  parse_status : String
+} derive(@debug.Debug)
+
+pub(all) struct Diagnostic {
+  code : String
+  severity : String
+  message : String
+  location : Location?
+} derive(@debug.Debug)
+
+pub(all) struct EvidenceReport {
+  schema_version : String
+  artifact : Artifact
+  facts : Array[Fact]
+  diagnostics : Array[Diagnostic]
+  stats : Array[(String, String)]
+} derive(@debug.Debug)
+pub fn EvidenceReport::to_json(Self) -> String
+
+pub(all) struct Fact {
+  id : String
+  kind : String
+  source : String
+  location : Location
+  status : String
+  attributes : Array[(String, String)]
+} derive(@debug.Debug)
+
+pub(all) struct Location {
+  section : String
+  rva : Int64
+  va : Int64
+  file_offset : Int64
+  size : Int64
+} derive(@debug.Debug)
+
+// Type aliases
+
+// Traits

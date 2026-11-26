@@ -1,0 +1,8 @@
+// evidence: stable, provenance-carrying facts for every MoonForge finding.
+// This package is the contract boundary between dependency-specific parsers and
+// the diff/policy/browser layers. It is pure bytes/data and compiles to wasm.
+import {
+  "moonbitlang/x/crypto",
+}
+
+warnings = "-6-9-79-25"

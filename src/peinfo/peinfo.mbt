@@ -303,3 +303,41 @@ pub fn xref_of(data : Bytes) -> @xref.XrefTable {
 pub fn slot_count(data : Bytes) -> Int {
   iat_slots(data).length()
 }
+
+///|
+/// Every executable section is decoded independently. The section flags, not
+/// the name `.text`, decide what is code; each section keeps its own RVA base.
+fn exec_sections(data : Bytes) -> Array[@xref.XrefSection] {
+  let out : Array[@xref.XrefSection] = []
+  let pe = match @pe.parse(data) {
+    Ok(pe) => pe
+    Err(_) => return out
+  }
+  for sec in pe.sections {
+    if !sec.flags.contains("x") || sec.size <= 0L || sec.offset < 0L {
+      continue
+    }
+    let start = sec.offset.to_int()
+    if start < 0 || start >= data.length() {
+      continue
+    }
+    let mut len = sec.size.to_int()
+    if start + len > data.length() {
+      len = data.length() - start
+    }
+    if len <= 0 {
+      continue
+    }
+    let code = Bytes::makei(len, fn(i) { data[start + i] })
+    out.push({ name: sec.name, base: sec.vaddr, code })
+  }
+  out
+}
+
+///|
+/// Full v2 pipeline: import slots plus section-aware byte-derived call sites.
+pub fn xref_v2_of(data : Bytes) -> @xref.XrefReportV2 {
+  let slots = iat_slots(data)
+  @xref.build_xref_v2(exec_sections(data), slots)
+}
+
