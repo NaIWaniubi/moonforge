@@ -34,9 +34,10 @@ bash scripts/clean_clone_check.sh
 - 真实浏览器：ZCode 内置 Chrome 完成 Demo 加载、拖放、5 artifact 自动分析、policy BLOCK、非法 policy 失败关闭、JSON 导出；截图见 `submission/browser-gate.png`
 - 申报书：`submission/PROPOSAL.pdf` 已生成并核验为 **1 页 A4**，预览见 `submission/PROPOSAL-preview.png`；内容仍为 AI 底稿，提交前必须由用户本人重写
 
-## 待补链接
+## 线上链接
 
-- GitHub Actions：待推送后填写
-- GitHub Pages：待部署后填写
+- GitHub Actions（Ubuntu + Windows 全绿）：https://github.com/NaIWaniubi/moonforge/actions/runs/45895491667
+- GitHub Pages（HTTP 200，真实 Chrome 复验）：https://naiwaniubi.github.io/moonforge/
+- Pages 验收截图：`submission/pages-gate.png`
 - mooncakes：待发布后填写
 - 飞书提交记录截图：待提交后填写

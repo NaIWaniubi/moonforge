@@ -21,11 +21,11 @@
 - [x] `PROPOSAL.md` 八点一页底稿
 - [ ] 用户本人重写 `PROPOSAL.md`，确保不是 AI 文案
 - [ ] 生成并人工核验 `submission/PROPOSAL.pdf` 为一页 A4
-- [ ] GitHub Pages 部署并返回 200
+- [x] GitHub Pages 部署并返回 200
 - [x] 本地真实 Chrome 拖放 / diff / policy gate / 导出验收
-- [ ] Pages 真实 Chrome 复验
+- [x] Pages 真实 Chrome 复验
 - [ ] 发布 mooncakes 0.2.0 并保存 `moon view` 证据
-- [ ] CI 实时全绿并截图
+- [x] CI 实时全绿（Ubuntu + Windows，run 45895491667）
 
 ## 报名记录
 

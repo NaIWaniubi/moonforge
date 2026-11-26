@@ -1,5 +1,7 @@
 # MoonForge RE Workbench
 
+[![CI](https://github.com/NaIWaniubi/moonforge/actions/workflows/ci.yml/badge.svg)](https://github.com/NaIWaniubi/moonforge/actions/workflows/ci.yml) [![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://naiwaniubi.github.io/moonforge/)
+
 **Cross-format binary evidence, release diff, and CI policy gates — in pure MoonBit.**
 
 MoonForge turns PE / ELF / Mach-O / Info.plist / WASM artifacts into a normalized, provenance-carrying fact model. It answers three questions that single-file parsers do not answer together:
