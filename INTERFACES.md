@@ -129,3 +129,37 @@ pub fn wasm_report(data : Bytes) -> Result[Array[WasmSection], String]
 做法：基于 `@clbbbb/moonbit-wasm-inspect` 列出节表/导出/自定义段（API 以拉取源码为准，禁止猜）。非法魔数返回 Err 并带原因字符串，不静默给空表。
 
 **验收**：fixture 用本项目自身 `moon build --target wasm` 产物（提交一份到 `fixtures_breadth/minimal.wasm`，作为"工具分析生态自己的产物"的实证）；另造一个魔数错位的负例 → Err。
+
+---
+
+## v0.2 addendum（2026-11-27）
+
+v0.1 的冻结签名作为历史记录保留；v0.2 的公共契约以本附录和生成 `.mbti` 为准。
+
+### 已实现的新包
+
+- `src/evidence/`：`Artifact`、`Location`、`Fact`、`Diagnostic`、`EvidenceReport`，canonical JSON。
+- `src/diff/`：`FactLocation`、`CanonicalFact`、`FactSet`、`DiffItem`、`DiffReport`，JSON 与 SARIF 2.1.0。
+- `src/policy/`：`PolicyRule`、`Policy`、`Violation`、`GateResult`，声明式 policy JSON。
+- `src/bundle/`、`src/wasmcheck/`：S6 契约已实现并接入 CLI 与 web v2。
+
+### xref v2
+
+- 新增 `XrefSection`、`XrefSiteV2`、`XrefReportV2`、`build_xref_v2`。
+- 每个可执行节独立解码，保留正确 base。
+- 从指令字节识别 `E8 rel32` 与 `FF 15 rip-rel32`，跳过 REX/legacy prefixes。
+- 完整账本：`decoded_calls = sites + unresolved_direct + indirect_calls`；`refused_bytes` 单列。
+- v1 `build_xref` 保留兼容，现有 CLI 行为不变。
+
+### Web 协议
+
+- 旧协议：`["moonforge-web", "input.bin", query?]`。
+- v2：`["moonforge-web-v2", file1, file2, ..., "--query", term]`。
+- v2 输出 `protocol/artifacts/diff/bundle/matches/notes`，用于多 artifact 证据工作台。
+
+### 公共 API 迁移说明
+
+- `Manifest::from_bytes` 仍未实现；当前公共入口是 `record_of_bytes`。v0.2 不伪造兼容别名。
+- `ApiCallSite.call_addr` 保留；v2 使用独立的 `XrefSiteV2`，避免破坏 v1 调用方。
+- corpus 的 v1 冻结函数名未实现；当前入口是 `new_index/ingest/search/snippet/results_to_json`，web v2 直接使用这些真实 API。
+- `js_scan/js_xref/js_search` 未实现；wasm 入口采用 argv/stdout 协议，Node 与浏览器共用同一 runtime。

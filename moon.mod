@@ -6,7 +6,7 @@
 
 name = "NaIWaniubi/moonforge"
 
-version = "0.1.0"
+version = "0.2.0"
 
 readme = "README.md"
 
@@ -16,18 +16,18 @@ license = "Apache-2.0"
 
 keywords = [
   "reverse-engineering",
-  "aggregator",
-  "orchestration",
   "binary-analysis",
-  "search",
-  "corpus",
-  "cli",
+  "evidence",
+  "diff",
+  "sarif",
+  "policy-gate",
+  "ci",
   "wasm",
 ]
 
 preferred_target = "native"
 
-description = "A pure-MoonBit workbench that composes five ecosystem tools (moonbin, moonpe, moonseek, moonplist, moonbit-wasm-inspect) into one reverse-engineering workflow: scan a corpus of binaries, cross-reference imported APIs against call sites, profile app bundles, and inspect WebAssembly modules — from one CLI or one browser tab."
+description = "Cross-format binary evidence, deterministic release diff, and CI policy gates in pure MoonBit: PE/ELF/Mach-O/plist/WASM facts with provenance, native CLI, and offline WASM workbench."
 
 import {
   "NaIWaniubi/moonbin@0.6.0",
