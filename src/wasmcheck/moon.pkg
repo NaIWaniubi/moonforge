@@ -1,0 +1,7 @@
+// wasmcheck: structural WebAssembly section report using the ecosystem
+// inspector. Invalid magic and malformed framing stay explicit errors.
+import {
+  "clbbbb/moonbit-wasm-inspect" @wasm_inspect,
+}
+
+warnings = "-6-9-79-25"

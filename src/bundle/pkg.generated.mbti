@@ -1,0 +1,29 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "NaIWaniubi/moonforge/src/bundle"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn bundle_profile(Bytes, Bytes?) -> BundleReport
+
+// Errors
+
+// Types and methods
+pub struct BundleReport {
+  macho_format : String
+  plist : PlistSummary?
+  note : String
+} derive(@debug.Debug)
+pub fn BundleReport::to_json(Self) -> String
+
+pub struct PlistSummary {
+  keys : Array[String]
+  bundle_id : String?
+  version : String?
+} derive(@debug.Debug)
+
+// Type aliases
+
+// Traits

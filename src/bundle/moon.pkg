@@ -1,0 +1,8 @@
+// bundle: Mach-O + Info.plist profiling for the MoonForge evidence chain.
+// Pure bytes in, structured facts out; no filesystem and no FFI.
+import {
+  "NaIWaniubi/moonbin/src/macho",
+  "Han-Wentao/moonplist",
+}
+
+warnings = "-6-9-79-25"

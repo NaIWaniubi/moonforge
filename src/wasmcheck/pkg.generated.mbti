@@ -1,0 +1,24 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "NaIWaniubi/moonforge/src/wasmcheck"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn sections_to_json(Array[WasmSection]) -> String
+
+pub fn wasm_report(Bytes) -> Result[Array[WasmSection], String]
+
+// Errors
+
+// Types and methods
+pub struct WasmSection {
+  name : String
+  offset : Int32
+  size : Int32
+} derive(@debug.Debug)
+
+// Type aliases
+
+// Traits
