@@ -26,7 +26,7 @@
 - [x] Pages 真实 Chrome 复验
 - [x] 发布 mooncakes 0.2.0 并保存 `moon view` 证据
 - [x] 创建并推送 `v0.2.0` tag
-- [x] CI 实时全绿（Ubuntu + Windows，run 45895491667）
+- [x] CI 实时全绿（Ubuntu + Windows，run 45896068370）
 
 ## 报名记录
 

@@ -36,7 +36,7 @@ bash scripts/clean_clone_check.sh
 
 ## 线上链接
 
-- GitHub Actions（Ubuntu + Windows 全绿）：https://github.com/NaIWaniubi/moonforge/actions/runs/45895491667
+- GitHub Actions（Ubuntu + Windows 全绿）：https://github.com/NaIWaniubi/moonforge/actions/runs/45896068370
 - GitHub Pages（HTTP 200，真实 Chrome 复验）：https://naiwaniubi.github.io/moonforge/
 - Pages 验收截图：`submission/pages-gate.png`
 - mooncakes：`NaIWaniubi/moonforge@0.2.0` 已发布；`moon view` 元数据见 `submission/mooncakes-view.json`
