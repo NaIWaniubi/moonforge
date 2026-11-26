@@ -4,4 +4,4 @@ import {
   "clbbbb/moonbit-wasm-inspect" @wasm_inspect,
 }
 
-warnings = "-6-9-79-25"
+warnings = "-6-9-79-25-27"
