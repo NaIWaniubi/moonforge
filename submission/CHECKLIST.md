@@ -24,7 +24,8 @@
 - [x] GitHub Pages 部署并返回 200
 - [x] 本地真实 Chrome 拖放 / diff / policy gate / 导出验收
 - [x] Pages 真实 Chrome 复验
-- [ ] 发布 mooncakes 0.2.0 并保存 `moon view` 证据
+- [x] 发布 mooncakes 0.2.0 并保存 `moon view` 证据
+- [x] 创建并推送 `v0.2.0` tag
 - [x] CI 实时全绿（Ubuntu + Windows，run 45895491667）
 
 ## 报名记录
