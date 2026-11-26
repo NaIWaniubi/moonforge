@@ -1,0 +1,7 @@
+{
+  "artifact_hash": "new",
+  "facts": [
+    {"kind":"import","key":"kernel32!NewApi","value":"rva:8192","location":{"section":".text","rva":8192,"va":4202496,"file_offset":2048,"size":8}},
+    {"kind":"export","key":"main","value":"new","location":{"section":"","rva":0,"va":0,"file_offset":0,"size":0}}
+  ]
+}

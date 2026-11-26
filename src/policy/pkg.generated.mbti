@@ -1,0 +1,46 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "NaIWaniubi/moonforge/src/policy"
+
+import {
+  "NaIWaniubi/moonforge/src/diff",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn evaluate(@diff.DiffReport, Policy) -> GateResult
+
+pub fn parse_policy(String) -> Result[Policy, String]
+
+// Errors
+
+// Types and methods
+pub(all) struct GateResult {
+  violations : Array[Violation]
+  passed : Bool
+} derive(@debug.Debug)
+pub fn GateResult::to_json(Self) -> String
+
+pub(all) struct Policy {
+  rules : Array[PolicyRule]
+} derive(@debug.Debug)
+
+pub(all) struct PolicyRule {
+  id : String
+  kind : String
+  change : String
+  key_prefix : String
+  severity : String
+} derive(@debug.Debug)
+
+pub(all) struct Violation {
+  rule_id : String
+  severity : String
+  message : String
+  change : String
+  kind : String
+  key : String
+} derive(@debug.Debug)
+
+// Type aliases
+
+// Traits

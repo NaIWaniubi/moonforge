@@ -1,0 +1,7 @@
+{
+  "artifact_hash": "old",
+  "facts": [
+    {"kind":"import","key":"kernel32!OldApi","value":"rva:4096","location":{"section":".text","rva":4096,"va":4198400,"file_offset":1024,"size":8}},
+    {"kind":"export","key":"main","value":"old","location":{"section":"","rva":0,"va":0,"file_offset":0,"size":0}}
+  ]
+}

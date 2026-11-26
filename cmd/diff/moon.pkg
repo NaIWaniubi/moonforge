@@ -1,0 +1,13 @@
+// diff CLI: compare two canonical fact sets.
+import {
+  "NaIWaniubi/moonforge/src/diff" @diff_lib,
+  "moonbitlang/x/fs",
+  "moonbitlang/x/sys",
+  "moonbitlang/core/env",
+}
+
+options(
+  "is-main": true,
+)
+
+warnings = "-6-9-79-25"

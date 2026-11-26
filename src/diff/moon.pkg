@@ -1,0 +1,7 @@
+// diff: canonical fact model and deterministic old/new comparison.
+// This package intentionally does not depend on parser-specific structs.
+import {
+  "moonbitlang/core/json",
+}
+
+warnings = "-6-9-79-25"

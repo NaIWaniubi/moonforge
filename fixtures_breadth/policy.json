@@ -1,0 +1,5 @@
+{
+  "rules": [
+    {"id":"no-new-kernel32-import","kind":"import","change":"added","key_prefix":"kernel32!","severity":"high"}
+  ]
+}

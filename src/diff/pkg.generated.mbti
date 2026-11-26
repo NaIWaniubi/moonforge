@@ -1,0 +1,57 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "NaIWaniubi/moonforge/src/diff"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn diff(FactSet, FactSet) -> DiffReport
+
+pub fn normalize(Array[CanonicalFact]) -> Array[CanonicalFact]
+
+// Errors
+
+// Types and methods
+pub(all) struct CanonicalFact {
+  kind : String
+  key : String
+  value : String
+  location : FactLocation
+} derive(Eq, @debug.Debug)
+
+pub(all) struct DiffItem {
+  change : String
+  kind : String
+  key : String
+  old_value : String
+  new_value : String
+  old_location : FactLocation?
+  new_location : FactLocation?
+} derive(@debug.Debug)
+
+pub(all) struct DiffReport {
+  added : Array[DiffItem]
+  removed : Array[DiffItem]
+  changed : Array[DiffItem]
+} derive(@debug.Debug)
+pub fn DiffReport::to_json(Self) -> String
+pub fn DiffReport::to_sarif(Self) -> String
+
+pub(all) struct FactLocation {
+  section : String
+  rva : Int64
+  va : Int64
+  file_offset : Int64
+  size : Int64
+} derive(Eq, @debug.Debug)
+
+pub(all) struct FactSet {
+  artifact_hash : String
+  facts : Array[CanonicalFact]
+} derive(@debug.Debug)
+pub fn FactSet::from_json(String) -> Result[Self, String]
+
+// Type aliases
+
+// Traits

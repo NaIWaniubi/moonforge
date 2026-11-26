@@ -1,0 +1,14 @@
+// gate CLI: evaluate a declarative policy against an old/new diff.
+import {
+  "NaIWaniubi/moonforge/src/diff" @diff_lib,
+  "NaIWaniubi/moonforge/src/policy" @policy_lib,
+  "moonbitlang/x/fs",
+  "moonbitlang/x/sys",
+  "moonbitlang/core/env",
+}
+
+options(
+  "is-main": true,
+)
+
+warnings = "-6-9-79-25"
