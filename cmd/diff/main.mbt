@@ -1,4 +1,6 @@
 // diff: `moonforge-diff <old.json> <new.json> [--format json|sarif]`
+
+///|
 fn main {
   let argv = @env.args()
   if argv.length() < 3 {
@@ -35,7 +37,7 @@ fn main {
     Err(error) => {
       println("diff: invalid old fact set: " + error)
       @sys.exit(2)
-      { artifact_hash: "", facts: [] }
+      { artifact_hash: "", facts: [], }
     }
   }
   let new = match @diff_lib.FactSet::from_json(new_text) {
@@ -43,7 +45,7 @@ fn main {
     Err(error) => {
       println("diff: invalid new fact set: " + error)
       @sys.exit(2)
-      { artifact_hash: "", facts: [] }
+      { artifact_hash: "", facts: [], }
     }
   }
   let report = @diff_lib.diff(old, new)

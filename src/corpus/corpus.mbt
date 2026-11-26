@@ -12,8 +12,8 @@
 /// run that happens to contain the word.
 pub fn new_index() -> @moonseek.Index {
   @moonseek.Index::new([
-    { name: "path", weight: 3.0 },
-    { name: "body", weight: 1.0 },
+    { name: "path", weight: 3.0, },
+    { name: "body", weight: 1.0, },
   ])
 }
 
@@ -31,7 +31,7 @@ pub(all) struct CorpusDoc {
 /// invents characters and hides ASCII runs behind replacement glyphs. This
 /// keeps only what a human could read in a hex dump, which is exactly what an
 /// analyst greps for.
-pub fn strings_of(data : Bytes, min_run : Int) -> String {
+pub fn strings_of(data : Bytes, min_run : Int32) -> String {
   let out : Array[Char] = []
   let run : Array[Char] = []
   for i = 0; i < data.length(); i = i + 1 {
@@ -61,7 +61,7 @@ pub fn strings_of(data : Bytes, min_run : Int) -> String {
 /// Add every document. Re-adding a path replaces it (moonseek's contract).
 pub fn ingest(idx : @moonseek.Index, docs : Array[CorpusDoc]) -> Unit {
   for d in docs {
-    idx.add({ id: d.path, fields: [("path", d.path), ("body", d.text)] })
+    idx.add({ id: d.path, fields: [("path", d.path), ("body", d.text)], })
   }
 }
 
@@ -84,16 +84,12 @@ pub fn search(
 /// A snippet: the window of `text` around the first occurrence of `term`,
 /// with `…` marking text cut off on either side. Returns None when the term is
 /// absent — never an empty string standing in for "not found".
-pub fn snippet(text : String, term : String, radius : Int) -> String? {
+pub fn snippet(text : String, term : String, radius : Int32) -> String? {
   let at = index_of_ci(text, term)
   if at < 0 {
     return None
   }
-  let start = if at > radius {
-    at - radius
-  } else {
-    0
-  }
+  let start = if at > radius { at - radius } else { 0 }
   let mut stop = at + term.length() + radius
   if stop > text.length() {
     stop = text.length()
@@ -112,7 +108,7 @@ pub fn snippet(text : String, term : String, radius : Int) -> String? {
 }
 
 ///|
-fn index_of_ci(haystack : String, needle : String) -> Int {
+fn index_of_ci(haystack : String, needle : String) -> Int32 {
   if needle.length() == 0 {
     return -1
   }
@@ -136,7 +132,7 @@ fn index_of_ci(haystack : String, needle : String) -> Int {
 }
 
 ///|
-fn lower_int(v : Int) -> Int {
+fn lower_int(v : Int32) -> Int32 {
   if v >= 65 && v <= 90 {
     v + 32
   } else {
@@ -145,7 +141,11 @@ fn lower_int(v : Int) -> Int {
 }
 
 ///|
-pub fn results_to_json(hits : Array[(String, Double)], docs : Array[CorpusDoc], term : String) -> String {
+pub fn results_to_json(
+  hits : Array[(String, Double)],
+  docs : Array[CorpusDoc],
+  term : String,
+) -> String {
   let parts : Array[String] = []
   for pair in hits {
     let mut text = ""

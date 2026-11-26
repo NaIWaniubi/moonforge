@@ -35,15 +35,15 @@ pub fn Format::from_label(label : String) -> Format? {
 /// Per-file structure counts, taken from the owning parser.
 /// Unknown files carry zeros — they were never parsed.
 pub(all) struct Summary {
-  sections : Int
-  symbols : Int
-  imports : Int
-  exports : Int
+  sections : Int32
+  symbols : Int32
+  imports : Int32
+  exports : Int32
 } derive(Eq, Debug)
 
 ///|
 pub fn Summary::empty() -> Summary {
-  { sections: 0, symbols: 0, imports: 0, exports: 0 }
+  { sections: 0, symbols: 0, imports: 0, exports: 0, }
 }
 
 ///|
@@ -64,7 +64,7 @@ pub(all) struct Manifest {
 
 ///|
 pub fn Manifest::new() -> Manifest {
-  { files: [] }
+  { files: [], }
 }
 
 ///|

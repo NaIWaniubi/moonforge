@@ -22,12 +22,10 @@ test "strings_of: binary noise alone yields no text" {
 test "search: a term present in one document hits exactly that document" {
   let idx = new_index()
   ingest(idx, [
-    { path: "a.exe", text: "VirtualAlloc VirtualProtect" },
-    { path: "b.exe", text: "HeapAlloc HeapFree" },
+    { path: "a.exe", text: "VirtualAlloc VirtualProtect", },
+    { path: "b.exe", text: "HeapAlloc HeapFree", },
   ])
-  let hits = search(idx, "VirtualAlloc", 10) catch {
-    _ => []
-  }
+  let hits = search(idx, "VirtualAlloc", 10) catch { _ => [] }
   assert_eq(hits.length(), 1)
   assert_eq(hits[0].0, "a.exe")
 }
@@ -35,10 +33,8 @@ test "search: a term present in one document hits exactly that document" {
 ///|
 test "search: a term in no document yields no hits, not a fake one" {
   let idx = new_index()
-  ingest(idx, [{ path: "a.exe", text: "HeapAlloc" }])
-  let hits = search(idx, "NonexistentSymbol", 10) catch {
-    _ => []
-  }
+  ingest(idx, [{ path: "a.exe", text: "HeapAlloc", }])
+  let hits = search(idx, "NonexistentSymbol", 10) catch { _ => [] }
   assert_eq(hits.length(), 0)
 }
 

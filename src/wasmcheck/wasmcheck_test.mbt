@@ -1,5 +1,6 @@
 // wasmcheck: positive and negative structural parser tests.
 
+///|
 test "wasm report accepts a minimal module" {
   let wasm = b"\x00asm\x01\x00\x00\x00"
   match @wasmcheck.wasm_report(wasm) {
@@ -8,6 +9,7 @@ test "wasm report accepts a minimal module" {
   }
 }
 
+///|
 test "wasm report rejects bad magic with a reason" {
   let bad = b"\x00asx\x01\x00\x00\x00"
   match @wasmcheck.wasm_report(bad) {
@@ -16,6 +18,7 @@ test "wasm report rejects bad magic with a reason" {
   }
 }
 
+///|
 test "wasm report rejects truncated input" {
   match @wasmcheck.wasm_report(b"\x00asm") {
     Ok(_) => fail("truncated header must be rejected")

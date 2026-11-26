@@ -14,8 +14,6 @@ import {
   "moonbitlang/core/env",
 }
 
-options(
-  "is-main": true,
-)
+pkgtype(kind: "executable")
 
 warnings = "-6-9-79-25"

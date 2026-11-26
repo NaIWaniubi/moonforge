@@ -1,5 +1,6 @@
 // evidence: schema and digest tests.
 
+///|
 test "empty digest is explicit" {
   assert_eq(
     @evidence.sha256_hex(b""),
@@ -7,12 +8,14 @@ test "empty digest is explicit" {
   )
 }
 
+///|
 test "artifact keeps empty input honest" {
   let a = @evidence.artifact("empty.bin", b"", "unknown", "empty")
   assert_eq(a.sha256, None)
   assert_eq(a.parse_status, "empty")
 }
 
+///|
 test "evidence json is deterministic and escapes text" {
   let report : @evidence.EvidenceReport = {
     schema_version: "1",

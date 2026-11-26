@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+env:
+  MOONBIT_INSTALL_VERSION: 0.1.20261023
+
 jobs:
   build:
     strategy:
@@ -17,31 +20,65 @@ jobs:
       - name: Install MoonBit (unix)
         if: runner.os == 'Linux'
         run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s -- 0.1.20261023
           echo "$HOME/.moon/bin" >> $GITHUB_PATH
 
       - name: Install MoonBit (windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          $env:MOONBIT_INSTALL_VERSION = "0.1.20261023"
           irm https://cli.moonbitlang.com/install/powershell.ps1 | iex
           echo "$HOME\.moon\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
 
-      - name: Update registry index
-        run: moon install 2>/dev/null || true
+      - name: Verify toolchain
+        run: moon version
+
+      - name: Install dependencies
+        run: moon install
+
+      - name: Format check
+        run: moon fmt --check
 
       - name: Check
         run: moon check --deny-warn
 
       - name: Test
-        run: moon test
+        run: moon test -j 1
 
-      - name: Build native
-        run: moon build --target native cmd/main
+      - name: Build native CLIs
+        run: |
+          moon build --target native cmd/main
+          moon build --target native cmd/bundle
+          moon build --target native cmd/wasmcheck
+          moon build --target native cmd/diff
+          moon build --target native cmd/gate
 
-      - name: Build wasm
-        run: moon build --target wasm --release src/web
+      - name: Build wasm workbench
+        run: |
+          moon build --target wasm --release src/web
+          bash web/build.sh
 
       - name: wasm acceptance
-        if: runner.os == 'Linux'
         run: node test/web_node_check.mjs
+
+      - name: CLI contract
+        run: node test/cli_contract.mjs
+
+      - name: Mutation harness
+        run: node scripts/mutation_check.mjs 10000
+
+      - name: External cross-check
+        run: node scripts/cross_check.mjs
+
+      - name: Benchmark
+        run: node bench/run_bench.mjs 1000
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonforge-${{ runner.os }}
+          path: |
+            _build/native/debug/build/**/*.exe
+            _build/wasm/release/build/src/web/web.wasm
+            web/main.wasm

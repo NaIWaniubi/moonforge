@@ -28,15 +28,15 @@ pub(all) struct ApiCallSite {
 /// The full cross-reference result for one binary.
 pub(all) struct XrefTable {
   /// Per-API call counts, sorted by API name for stable output.
-  by_api : Array[(String, Int)]
+  by_api : Array[(String, Int32)]
   /// Every resolved call site, in ascending call address order.
   sites : Array[ApiCallSite]
   /// Direct call targets that matched no import slot (resolved intra-binary
   /// calls, plus imports whose slot we could not name). Never discarded.
-  unresolved : Int
+  unresolved : Int32
   /// Indirect calls seen. They have no static target, so they cannot be
   /// attributed; the count is reported so the reader knows what is missing.
-  indirect_calls : Int
+  indirect_calls : Int32
 } derive(Debug)
 
 ///|
@@ -49,7 +49,7 @@ struct CallEdge {
 
 ///|
 /// Index of the import whose slot RVA equals `rva`, or -1.
-fn slot_index(slots : Array[(Int64, String)], rva : Int64) -> Int {
+fn slot_index(slots : Array[(Int64, String)], rva : Int64) -> Int32 {
   let mut lo = 0
   let mut hi = slots.length() - 1
   while lo <= hi {
@@ -94,19 +94,22 @@ pub fn build_xref(
       Some(target) => {
         let i = slot_index(slots, target)
         if i >= 0 {
-          sites.push({ api: slots[i].1, call_addr: ins.addr, target_addr: target })
+          sites.push({
+            api: slots[i].1,
+            call_addr: ins.addr,
+            target_addr: target,
+          })
         } else {
           unresolved = unresolved + 1
         }
       }
-      None => {
+      None =>
         // `call rax`, `call qword ptr [...]` — no static target.
         indirect = indirect + 1
-      }
     }
   }
   // Counts per API, sorted by name so two runs produce identical output.
-  let counts : Array[(String, Int)] = []
+  let counts : Array[(String, Int32)] = []
   for site in sites {
     let mut found = false
     for i = 0; i < counts.length(); i = i + 1 {
@@ -116,12 +119,12 @@ pub fn build_xref(
         break
       }
     }
-    if !(found) {
+    if !found {
       counts.push((site.api, 1))
     }
   }
   counts.sort_by(fn(a, b) { a.0.compare(b.0) })
-  { by_api: counts, sites, unresolved, indirect_calls: indirect }
+  { by_api: counts, sites, unresolved, indirect_calls: indirect, }
 }
 
 ///|
@@ -149,7 +152,7 @@ pub fn call_target(op_str : String, insn_end : Int64) -> Int64? {
     return None
   }
   let inner = text[open + 1:close].to_owned()
-  if !(inner.has_prefix("rip")) {
+  if !inner.has_prefix("rip") {
     return None
   }
   let rest = inner[3:inner.length()].to_owned()
@@ -177,12 +180,12 @@ pub fn call_target(op_str : String, insn_end : Int64) -> Int64? {
 }
 
 ///|
-fn index_of(s : String, ch : Int) -> Int {
+fn index_of(s : String, ch : Int32) -> Int32 {
   index_of_from(s, ch, 0)
 }
 
 ///|
-fn index_of_from(s : String, ch : Int, from : Int) -> Int {
+fn index_of_from(s : String, ch : Int32, from : Int32) -> Int32 {
   let mut i = from
   while i < s.length() {
     if s[i].to_int() == ch {
@@ -195,7 +198,7 @@ fn index_of_from(s : String, ch : Int, from : Int) -> Int {
 
 ///|
 /// Hex digits, with an optional `0x` prefix. `skip` is where the digits start.
-pub fn parse_hex(text : String, skip : Int) -> Int64? {
+pub fn parse_hex(text : String, skip : Int32) -> Int64? {
   let mut value : Int64 = 0L
   let mut any = false
   let mut i = skip
@@ -223,7 +226,7 @@ pub fn parse_hex(text : String, skip : Int) -> Int64? {
 }
 
 ///|
-fn hex_digit(v : Int) -> Int? {
+fn hex_digit(v : Int32) -> Int32? {
   if v >= 48 && v <= 57 {
     Some(v - 48)
   } else if v >= 97 && v <= 102 {
@@ -240,7 +243,11 @@ pub fn XrefTable::to_json(self : XrefTable) -> String {
   let counts : Array[String] = []
   for pair in self.by_api {
     counts.push(
-      "{\"api\":\"" + escape(pair.0) + "\",\"count\":" + pair.1.to_string() + "}",
+      "{\"api\":\"" +
+      escape(pair.0) +
+      "\",\"count\":" +
+      pair.1.to_string() +
+      "}",
     )
   }
   let sites : Array[String] = []
@@ -286,46 +293,51 @@ fn escape(s : String) -> String {
 
 // ─── xref v2: section-aware, byte-derived call evidence ──────────────────────
 
-///| One executable section supplied by the format adapter.
+///|
+/// One executable section supplied by the format adapter.
 pub(all) struct XrefSection {
   name : String
   base : Int64
   code : Bytes
 } derive(Debug)
 
-///| One attributed call site with enough provenance to audit the decision.
+///|
+/// One attributed call site with enough provenance to audit the decision.
 pub(all) struct XrefSiteV2 {
   api : String
   call_addr : Int64
   target_addr : Int64
   section : String
   rva : Int64
-  instruction_bytes : Array[Int]
+  instruction_bytes : Array[Int32]
   rule : String
 } derive(Debug)
 
-///| Complete call ledger. The core invariant is:
+///|
+/// Complete call ledger. The core invariant is:
 /// `decoded_calls = sites.length + unresolved_direct + indirect_calls`.
 pub(all) struct XrefReportV2 {
   sites : Array[XrefSiteV2]
-  by_api : Array[(String, Int)]
-  decoded_calls : Int
-  refused_bytes : Int
-  direct_calls : Int
-  indirect_calls : Int
-  unresolved_direct : Int
-  sections_scanned : Int
+  by_api : Array[(String, Int32)]
+  decoded_calls : Int32
+  refused_bytes : Int32
+  direct_calls : Int32
+  indirect_calls : Int32
+  unresolved_direct : Int32
+  sections_scanned : Int32
 } derive(Debug)
 
-fn byte_ints(data : Bytes) -> Array[Int] {
-  let out : Array[Int] = []
+///|
+fn byte_ints(data : Bytes) -> Array[Int32] {
+  let out : Array[Int32] = []
   for b in data {
     out.push(b.to_int())
   }
   out
 }
 
-fn disp32(data : Bytes, at : Int) -> Int64 {
+///|
+fn disp32(data : Bytes, at : Int32) -> Int64 {
   let value = data[at].to_int() |
     (data[at + 1].to_int() << 8) |
     (data[at + 2].to_int() << 16) |
@@ -337,10 +349,15 @@ fn disp32(data : Bytes, at : Int) -> Int64 {
   }
 }
 
-///| Derive a static call target from the encoded instruction bytes, not from
+///|
+/// Derive a static call target from the encoded instruction bytes, not from
 /// the disassembler's display string. Only E8 rel32 and FF 15 rip-rel32 are
 /// accepted; every other call shape stays indirect.
-fn call_target_bytes(data : Bytes, addr : Int64, len : Int) -> (Int64, String)? {
+fn call_target_bytes(
+  data : Bytes,
+  addr : Int64,
+  len : Int32,
+) -> (Int64, String)? {
   if len >= 5 && data[0].to_int() == 0xE8 {
     Some((addr + 5L + disp32(data, 1), "E8-rel32"))
   } else if len >= 6 && data[0].to_int() == 0xFF && data[1].to_int() == 0x15 {
@@ -350,7 +367,8 @@ fn call_target_bytes(data : Bytes, addr : Int64, len : Int) -> (Int64, String)? 
   }
 }
 
-///| Section-aware xref. Each section is decoded independently so a multi-text
+///|
+/// Section-aware xref. Each section is decoded independently so a multi-text
 /// image never concatenates addresses from different bases.
 pub fn build_xref_v2(
   sections : Array[XrefSection],
@@ -363,7 +381,11 @@ pub fn build_xref_v2(
   let mut indirect_calls = 0
   let mut unresolved_direct = 0
   for section in sections {
-    let insns = @disasm.disassemble(section.code, section.base, section.code.length() + 1)
+    let insns = @disasm.disassemble(
+      section.code,
+      section.base,
+      section.code.length() + 1,
+    )
     for ins in insns {
       if ins.mnemonic == ".byte" {
         refused_bytes = refused_bytes + ins.len
@@ -395,7 +417,7 @@ pub fn build_xref_v2(
       }
     }
   }
-  let counts : Array[(String, Int)] = []
+  let counts : Array[(String, Int32)] = []
   for site in sites {
     let mut found = false
     for i = 0; i < counts.length(); i = i + 1 {
@@ -405,7 +427,7 @@ pub fn build_xref_v2(
         break
       }
     }
-    if !(found) {
+    if !found {
       counts.push((site.api, 1))
     }
   }
@@ -422,7 +444,8 @@ pub fn build_xref_v2(
   }
 }
 
-fn json_array_ints(values : Array[Int]) -> String {
+///|
+fn json_array_ints(values : Array[Int32]) -> String {
   let parts : Array[String] = []
   for value in values {
     parts.push(value.to_string())
@@ -430,11 +453,18 @@ fn json_array_ints(values : Array[Int]) -> String {
   "[" + parts.join(",") + "]"
 }
 
-///| Canonical JSON for the v2 ledger.
+///|
+/// Canonical JSON for the v2 ledger.
 pub fn XrefReportV2::to_json(self : XrefReportV2) -> String {
   let counts : Array[String] = []
   for pair in self.by_api {
-    counts.push("{\"api\":\"" + escape(pair.0) + "\",\"count\":" + pair.1.to_string() + "}")
+    counts.push(
+      "{\"api\":\"" +
+      escape(pair.0) +
+      "\",\"count\":" +
+      pair.1.to_string() +
+      "}",
+    )
   }
   let sites : Array[String] = []
   for site in self.sites {

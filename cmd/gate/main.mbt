@@ -1,4 +1,6 @@
 // gate: `moonforge-gate <old.json> <new.json> <policy.json>`
+
+///|
 fn main {
   let argv = @env.args()
   if argv.length() < 4 {
@@ -31,7 +33,7 @@ fn main {
     Err(error) => {
       println("gate: invalid old fact set: " + error)
       @sys.exit(2)
-      { artifact_hash: "", facts: [] }
+      { artifact_hash: "", facts: [], }
     }
   }
   let new = match @diff_lib.FactSet::from_json(new_text) {
@@ -39,7 +41,7 @@ fn main {
     Err(error) => {
       println("gate: invalid new fact set: " + error)
       @sys.exit(2)
-      { artifact_hash: "", facts: [] }
+      { artifact_hash: "", facts: [], }
     }
   }
   let policy = match @policy_lib.parse_policy(policy_text) {
@@ -47,7 +49,7 @@ fn main {
     Err(error) => {
       println("gate: invalid policy: " + error)
       @sys.exit(2)
-      { rules: [] }
+      { rules: [], }
     }
   }
   let report = @diff_lib.diff(old, new)

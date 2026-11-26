@@ -1,6 +1,7 @@
 // evidence: a small, deterministic schema for auditable binary facts.
 
-///| Artifact identity. Empty input has no digest and is marked as such.
+///|
+/// Artifact identity. Empty input has no digest and is marked as such.
 pub(all) struct Artifact {
   path : String
   size : Int64
@@ -9,7 +10,8 @@ pub(all) struct Artifact {
   parse_status : String
 } derive(Debug)
 
-///| Where a fact came from. RVAs and VAs are zero when a format does not use
+///|
+/// Where a fact came from. RVAs and VAs are zero when a format does not use
 /// them; file_offset is always the byte offset in the artifact.
 pub(all) struct Location {
   section : String
@@ -19,7 +21,8 @@ pub(all) struct Location {
   size : Int64
 } derive(Debug)
 
-///| One fact. `status` is one of parsed, derived, malformed, unsupported,
+///|
+/// One fact. `status` is one of parsed, derived, malformed, unsupported,
 /// empty. `attributes` is a sorted list of stable key/value pairs.
 pub(all) struct Fact {
   id : String
@@ -30,7 +33,8 @@ pub(all) struct Fact {
   attributes : Array[(String, String)]
 } derive(Debug)
 
-///| A diagnostic is separate from a fact: errors never become zero-valued
+///|
+/// A diagnostic is separate from a fact: errors never become zero-valued
 /// successful facts.
 pub(all) struct Diagnostic {
   code : String
@@ -39,7 +43,8 @@ pub(all) struct Diagnostic {
   location : Location?
 } derive(Debug)
 
-///| Complete evidence envelope for one artifact.
+///|
+/// Complete evidence envelope for one artifact.
 pub(all) struct EvidenceReport {
   schema_version : String
   artifact : Artifact
@@ -48,7 +53,8 @@ pub(all) struct EvidenceReport {
   stats : Array[(String, String)]
 } derive(Debug)
 
-fn hex_nibble(v : Int) -> Char {
+///|
+fn hex_nibble(v : Int32) -> Char {
   if v < 10 {
     (48 + v).unsafe_to_char()
   } else {
@@ -56,7 +62,8 @@ fn hex_nibble(v : Int) -> Char {
   }
 }
 
-///| SHA-256 hex digest. Empty bytes intentionally return the standard empty
+///|
+/// SHA-256 hex digest. Empty bytes intentionally return the standard empty
 /// digest so callers can distinguish "hashed empty input" from "no digest".
 pub fn sha256_hex(data : Bytes) -> String {
   let bytes = @crypto.sha256(data)
@@ -69,7 +76,8 @@ pub fn sha256_hex(data : Bytes) -> String {
   String::from_array(out)
 }
 
-///| Build an artifact envelope. `parse_status` is supplied by the adapter and
+///|
+/// Build an artifact envelope. `parse_status` is supplied by the adapter and
 /// must be explicit; this function never invents success.
 pub fn artifact(
   path : String,
@@ -80,18 +88,24 @@ pub fn artifact(
   {
     path,
     size: data.length().to_int64(),
-    sha256: if data.length() == 0 { None } else { Some(sha256_hex(data)) },
+    sha256: if data.length() == 0 {
+      None
+    } else {
+      Some(sha256_hex(data))
+    },
     format,
     parse_status,
   }
 }
 
-///| Empty location for facts that are artifact-wide.
+///|
+/// Empty location for facts that are artifact-wide.
 pub fn no_location() -> Location {
-  { section: "", rva: 0L, va: 0L, file_offset: 0L, size: 0L }
+  { section: "", rva: 0L, va: 0L, file_offset: 0L, size: 0L, }
 }
 
-///| Construct a fact with a deterministic id seed.
+///|
+/// Construct a fact with a deterministic id seed.
 pub fn fact(
   id : String,
   kind : String,
@@ -100,19 +114,21 @@ pub fn fact(
   status : String,
   attributes : Array[(String, String)],
 ) -> Fact {
-  { id, kind, source, location, status, attributes }
+  { id, kind, source, location, status, attributes, }
 }
 
-///| Construct a diagnostic.
+///|
+/// Construct a diagnostic.
 pub fn diagnostic(
   code : String,
   severity : String,
   message : String,
   location : Location?,
 ) -> Diagnostic {
-  { code, severity, message, location }
+  { code, severity, message, location, }
 }
 
+///|
 fn jstr(s : String) -> String {
   let out : Array[Char] = ['"']
   for c in s {
@@ -147,6 +163,7 @@ fn jstr(s : String) -> String {
   String::from_array(out)
 }
 
+///|
 fn jopt(s : String?) -> String {
   match s {
     Some(value) => jstr(value)
@@ -154,6 +171,7 @@ fn jopt(s : String?) -> String {
   }
 }
 
+///|
 fn jloc(loc : Location) -> String {
   "{\"section\":" +
   jstr(loc.section) +
@@ -168,6 +186,7 @@ fn jloc(loc : Location) -> String {
   "}"
 }
 
+///|
 fn jlocopt(loc : Location?) -> String {
   match loc {
     Some(value) => jloc(value)
@@ -175,6 +194,7 @@ fn jlocopt(loc : Location?) -> String {
   }
 }
 
+///|
 fn jpairs(pairs : Array[(String, String)]) -> String {
   let parts : Array[String] = []
   for pair in pairs {
@@ -183,6 +203,7 @@ fn jpairs(pairs : Array[(String, String)]) -> String {
   "{" + parts.join(",") + "}"
 }
 
+///|
 fn jfact(f : Fact) -> String {
   "{\"id\":" +
   jstr(f.id) +
@@ -199,6 +220,7 @@ fn jfact(f : Fact) -> String {
   "}"
 }
 
+///|
 fn jdiag(d : Diagnostic) -> String {
   "{\"code\":" +
   jstr(d.code) +
@@ -211,7 +233,8 @@ fn jdiag(d : Diagnostic) -> String {
   "}"
 }
 
-///| Canonical JSON. Arrays preserve caller order; callers must sort facts and
+///|
+/// Canonical JSON. Arrays preserve caller order; callers must sort facts and
 /// diagnostics when byte-for-byte determinism matters.
 pub fn EvidenceReport::to_json(self : EvidenceReport) -> String {
   let facts : Array[String] = []

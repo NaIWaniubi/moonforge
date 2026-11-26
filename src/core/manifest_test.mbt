@@ -22,7 +22,10 @@ test "detect: Mach-O magics, both endians, 32 and 64" {
 
 ///|
 test "detect: fat Mach-O header" {
-  assert_eq(@core.detect_format(b"\xca\xfe\xba\xbe\x00\x00\x00\x02"), @core.MachO)
+  assert_eq(
+    @core.detect_format(b"\xca\xfe\xba\xbe\x00\x00\x00\x02"),
+    @core.MachO,
+  )
 }
 
 ///|
@@ -35,9 +38,7 @@ test "detect: everything else is Unknown, never guessed" {
 
 ///|
 test "format labels round-trip and junk labels are refused" {
-  for f in [
-    @core.Pe, @core.Elf, @core.MachO, @core.Unknown,
-  ] {
+  for f in [@core.Pe, @core.Elf, @core.MachO, @core.Unknown] {
     assert_eq(Format::from_label(f.label()), Some(f))
   }
   assert_eq(Format::from_label("PE"), None)

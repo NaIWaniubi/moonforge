@@ -20,10 +20,7 @@ test "call_target: rip-relative import thunk resolves to the IAT slot" {
     Some(0x14002a450L),
   )
   // Negative displacement form.
-  assert_eq(
-    call_target("qword ptr [rip-0x10]", insn_end),
-    Some(insn_end - 16L),
-  )
+  assert_eq(call_target("qword ptr [rip-0x10]", insn_end), Some(insn_end - 16L))
 }
 
 ///|
@@ -52,12 +49,12 @@ test "build_xref: resolves slots, counts unresolved and indirect" {
   // At 0x1005: E8 06 00 00 00   -> call 0x1010
   // At 0x100A: FF D0            -> call rax (indirect)
   // At 0x100C: E8 EF 0F 00 00   -> call 0x2000 (no slot there)
-  let code : Bytes = Bytes::from_array([
-    0xE8, 0x0B, 0x00, 0x00, 0x00,
-    0xE8, 0x06, 0x00, 0x00, 0x00,
-    0xFF, 0xD0,
-    0xE8, 0xEF, 0x0F, 0x00, 0x00,
-  ].map(fn(v) { v.to_byte() }))
+  let code : Bytes = Bytes::from_array(
+    [
+      0xE8, 0x0B, 0x00, 0x00, 0x00, 0xE8, 0x06, 0x00, 0x00, 0x00, 0xFF, 0xD0, 0xE8,
+      0xEF, 0x0F, 0x00, 0x00,
+    ].map(fn(v) { v.to_byte() }),
+  )
   let slots : Array[(Int64, String)] = [(0x1010L, "VirtualAlloc")]
   let table = build_xref(slots, code, 0x1000L)
   assert_eq(table.by_api.length(), 1)
@@ -83,10 +80,11 @@ test "build_xref: no slots means no attributions, and that is reported" {
 
 ///|
 test "build_xref: counts are sorted by api name, stable across runs" {
-  let code : Bytes = Bytes::from_array([
-    0xE8, 0x0B, 0x00, 0x00, 0x00,
-    0xE8, 0x06, 0x00, 0x00, 0x00,
-  ].map(fn(v) { v.to_byte() }))
+  let code : Bytes = Bytes::from_array(
+    [0xE8, 0x0B, 0x00, 0x00, 0x00, 0xE8, 0x06, 0x00, 0x00, 0x00].map(fn(v) {
+      v.to_byte()
+    }),
+  )
   let slots : Array[(Int64, String)] = [(0x1010L, "ZwClose")]
   let a = build_xref(slots, code, 0x1000L)
   let b = build_xref(slots, code, 0x1000L)
@@ -97,7 +95,7 @@ test "build_xref: counts are sorted by api name, stable across runs" {
 test "json: xref shape carries the honesty fields" {
   let table : XrefTable = {
     by_api: [("VirtualAlloc", 2)],
-    sites: [{ api: "VirtualAlloc", call_addr: 0x1000L, target_addr: 0x1010L }],
+    sites: [{ api: "VirtualAlloc", call_addr: 0x1000L, target_addr: 0x1010L, }],
     unresolved: 3,
     indirect_calls: 1,
   }
@@ -110,16 +108,16 @@ test "json: xref shape carries the honesty fields" {
 ///|
 /// xref v2 derives targets from bytes and keeps a complete call ledger.
 test "xref v2: byte-derived E8 and FF15 attribution" {
-  let code : Bytes = Bytes::from_array([
-    0xE8, 0x00, 0x00, 0x00, 0x00,
-    0xFF, 0x15, 0x00, 0x00, 0x00, 0x00,
-    0xFF, 0xD0,
-  ].map(fn(v) { v.to_byte() }))
+  let code : Bytes = Bytes::from_array(
+    [
+      0xE8, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x15, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xD0,
+    ].map(fn(v) { v.to_byte() }),
+  )
   let slots : Array[(Int64, String)] = [
     (0x1005L, "VirtualAlloc"),
     (0x100BL, "VirtualFree"),
   ]
-  let report = build_xref_v2([{ name: ".text", base: 0x1000L, code }], slots)
+  let report = build_xref_v2([{ name: ".text", base: 0x1000L, code, }], slots)
   assert_eq(report.sites.length(), 2)
   assert_eq(report.sites[0].api, "VirtualAlloc")
   assert_eq(report.sites[0].rule, "E8-rel32")
@@ -139,12 +137,16 @@ test "xref v2: byte-derived E8 and FF15 attribution" {
 /// Every executable section keeps its own base; addresses never leak across
 /// section boundaries.
 test "xref v2: multiple sections retain independent bases" {
-  let a : Bytes = Bytes::from_array([0xE8, 0x00, 0x00, 0x00, 0x00].map(fn(v) { v.to_byte() }))
-  let b : Bytes = Bytes::from_array([0xE8, 0x00, 0x00, 0x00, 0x00].map(fn(v) { v.to_byte() }))
+  let a : Bytes = Bytes::from_array(
+    [0xE8, 0x00, 0x00, 0x00, 0x00].map(fn(v) { v.to_byte() }),
+  )
+  let b : Bytes = Bytes::from_array(
+    [0xE8, 0x00, 0x00, 0x00, 0x00].map(fn(v) { v.to_byte() }),
+  )
   let report = build_xref_v2(
     [
-      { name: ".text", base: 0x1000L, code: a },
-      { name: ".code2", base: 0x2000L, code: b },
+      { name: ".text", base: 0x1000L, code: a, },
+      { name: ".code2", base: 0x2000L, code: b, },
     ],
     [(0x1005L, "ApiA"), (0x2005L, "ApiB")],
   )
@@ -155,4 +157,3 @@ test "xref v2: multiple sections retain independent bases" {
   assert_eq(report.sites[1].rva, 0L)
   assert_eq(report.sections_scanned, 2)
 }
-

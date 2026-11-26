@@ -1,4 +1,6 @@
 // bundle: `moonforge-bundle <macho> [Info.plist]`
+
+///|
 fn main {
   let argv = @env.args()
   if argv.length() < 2 {
@@ -13,13 +15,15 @@ fn main {
     }
   }
   let plist = if argv.length() >= 3 {
-    Some(@fs.read_file_to_bytes(argv[2]) catch {
-      @fs.IOError(message) => {
-        println("bundle: cannot read plist: " + message)
-        @sys.exit(2)
-        b""
-      }
-    })
+    Some(
+      @fs.read_file_to_bytes(argv[2]) catch {
+        @fs.IOError(message) => {
+          println("bundle: cannot read plist: " + message)
+          @sys.exit(2)
+          b""
+        }
+      },
+    )
   } else {
     None
   }

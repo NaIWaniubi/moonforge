@@ -1,21 +1,24 @@
 // wasmcheck: one bounded, deterministic section report per WASM artifact.
 
-///| One section in input order.
+///|
+/// One section in input order.
 pub struct WasmSection {
   name : String
   offset : Int32
   size : Int32
 } derive(Debug)
 
-fn ints(data : Bytes) -> Array[Int] {
-  let out : Array[Int] = []
+///|
+fn ints(data : Bytes) -> Array[Int32] {
+  let out : Array[Int32] = []
   for b in data {
     out.push(b.to_int())
   }
   out
 }
 
-///| Parse a WASM module and return its sections. The parser validates magic,
+///|
+/// Parse a WASM module and return its sections. The parser validates magic,
 /// version, section ordering, and declared payload bounds.
 pub fn wasm_report(data : Bytes) -> Result[Array[WasmSection], String] {
   match @wasm_inspect.parse_module(ints(data)) {
@@ -38,6 +41,7 @@ pub fn wasm_report(data : Bytes) -> Result[Array[WasmSection], String] {
   }
 }
 
+///|
 fn json_string(s : String) -> String {
   let out : Array[Char] = ['"']
   for c in s {
@@ -58,7 +62,8 @@ fn json_string(s : String) -> String {
   String::from_array(out)
 }
 
-///| Canonical JSON array of sections.
+///|
+/// Canonical JSON array of sections.
 pub fn sections_to_json(sections : Array[WasmSection]) -> String {
   let parts : Array[String] = []
   for section in sections {

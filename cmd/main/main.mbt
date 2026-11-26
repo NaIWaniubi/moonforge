@@ -33,15 +33,9 @@ fn collect(root : String, dir : String, prefix : String) -> Array[String] {
   }
   sorted.sort()
   for name in sorted {
-    let rel = if prefix.length() == 0 {
-      name
-    } else {
-      prefix + "/" + name
-    }
+    let rel = if prefix.length() == 0 { name } else { prefix + "/" + name }
     let full = join(root, rel)
-    let is_dir = @fs.is_dir(full) catch {
-      @fs.IOError(_) => false
-    }
+    let is_dir = @fs.is_dir(full) catch { @fs.IOError(_) => false }
     if is_dir {
       for sub in collect(root, rel, rel) {
         out.push(sub)
@@ -56,22 +50,12 @@ fn collect(root : String, dir : String, prefix : String) -> Array[String] {
 ///|
 fn usage() -> Unit {
   let lines : Array[String] = [
-    "usage: moonforge scan <dir> [--out <file>]",
-    "",
-    "Scans a directory and writes a manifest of every file:",
-    "container format, size, sha256, and section/symbol/import/export counts.",
-    "Files whose magic is not PE / ELF / Mach-O are recorded as `unknown`",
-    "and are never handed to a parser.",
-    "",
-    "usage: moonforge xref <file.exe> [--out <file>]",
-    "",
-    "Resolves imported-API call sites in one PE: which import is called from",
-    "where. Only statically-encoded `call rel32` participates; indirect calls",
-    "are counted, not guessed.",
-    "",
-    "usage: moonforge search <dir> <query...> [--limit N]",
-    "",
-    "Indexes the printable text of every file under <dir> and ranks them for",
+    "usage: moonforge scan <dir> [--out <file>]", "", "Scans a directory and writes a manifest of every file:",
+    "container format, size, sha256, and section/symbol/import/export counts.", "Files whose magic is not PE / ELF / Mach-O are recorded as `unknown`",
+    "and are never handed to a parser.", "", "usage: moonforge xref <file.exe> [--out <file>]",
+    "", "Resolves imported-API call sites in one PE: which import is called from",
+    "where. Only statically-encoded `call rel32` participates; indirect calls", "are counted, not guessed.",
+    "", "usage: moonforge search <dir> <query...> [--limit N]", "", "Indexes the printable text of every file under <dir> and ranks them for",
     "the query. Each hit carries a snippet around the match.",
   ]
   println(lines.join("\n"))
@@ -147,10 +131,8 @@ fn run_search(argv : Array[String]) -> Unit {
     usage()
     @sys.exit(2)
   }
-  let root_is_dir = @fs.is_dir(root) catch {
-    @fs.IOError(_) => false
-  }
-  if !(root_is_dir) {
+  let root_is_dir = @fs.is_dir(root) catch { @fs.IOError(_) => false }
+  if !root_is_dir {
     println("moonforge search: not a directory: " + root)
     @sys.exit(2)
     return
@@ -161,7 +143,7 @@ fn run_search(argv : Array[String]) -> Unit {
     let data = @fs.read_file_to_bytes(join(root, rel)) catch {
       @fs.IOError(_) => continue
     }
-    docs.push({ path: rel, text: @corpus.strings_of(data, 4) })
+    docs.push({ path: rel, text: @corpus.strings_of(data, 4), })
   }
   let idx = @corpus.new_index()
   @corpus.ingest(idx, docs)
@@ -173,7 +155,13 @@ fn run_search(argv : Array[String]) -> Unit {
     }
   }
   println(@corpus.results_to_json(hits, docs, query))
-  println("search: " + hits.length().to_string() + " hits over " + docs.length().to_string() + " files")
+  println(
+    "search: " +
+    hits.length().to_string() +
+    " hits over " +
+    docs.length().to_string() +
+    " files",
+  )
 }
 
 ///|
@@ -211,10 +199,8 @@ fn main raise {
       @sys.exit(2)
     }
   }
-  let root_is_dir = @fs.is_dir(root) catch {
-    @fs.IOError(_) => false
-  }
-  if !(root_is_dir) {
+  let root_is_dir = @fs.is_dir(root) catch { @fs.IOError(_) => false }
+  if !root_is_dir {
     println("moonforge: not a directory: " + root)
     @sys.exit(2)
   }

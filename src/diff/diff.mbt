@@ -1,10 +1,12 @@
 // diff: normalized facts, deterministic set/map diff, JSON and SARIF output.
 
+///|
 priv suberror DiffParseError {
   DiffParseError(String)
 }
 
-///| Byte-level location carried by both sides of a diff.
+///|
+/// Byte-level location carried by both sides of a diff.
 pub(all) struct FactLocation {
   section : String
   rva : Int64
@@ -13,7 +15,8 @@ pub(all) struct FactLocation {
   size : Int64
 } derive(Eq, Debug)
 
-///| One normalized fact. `key` is stable within `kind`.
+///|
+/// One normalized fact. `key` is stable within `kind`.
 pub(all) struct CanonicalFact {
   kind : String
   key : String
@@ -21,13 +24,15 @@ pub(all) struct CanonicalFact {
   location : FactLocation
 } derive(Eq, Debug)
 
-///| A complete normalized artifact view.
+///|
+/// A complete normalized artifact view.
 pub(all) struct FactSet {
   artifact_hash : String
   facts : Array[CanonicalFact]
 } derive(Debug)
 
-///| One added, removed, or changed fact.
+///|
+/// One added, removed, or changed fact.
 pub(all) struct DiffItem {
   change : String
   kind : String
@@ -38,29 +43,34 @@ pub(all) struct DiffItem {
   new_location : FactLocation?
 } derive(Debug)
 
-///| Complete deterministic diff.
+///|
+/// Complete deterministic diff.
 pub(all) struct DiffReport {
   added : Array[DiffItem]
   removed : Array[DiffItem]
   changed : Array[DiffItem]
 } derive(Debug)
 
+///|
 fn sort_key(fact : CanonicalFact) -> String {
   fact.kind + "\u{1f}" + fact.key
 }
 
-///| Return a sorted copy; input order never affects diff output.
+///|
+/// Return a sorted copy; input order never affects diff output.
 pub fn normalize(facts : Array[CanonicalFact]) -> Array[CanonicalFact] {
   let out = facts.copy()
   out.sort_by(fn(a, b) { sort_key(a).compare(sort_key(b)) })
   out
 }
 
+///|
 fn location_changed(a : FactLocation, b : FactLocation) -> Bool {
   a != b
 }
 
-///| Three-way merge over normalized fact arrays.
+///|
+/// Three-way merge over normalized fact arrays.
 pub fn diff(old : FactSet, new : FactSet) -> DiffReport {
   let left = normalize(old.facts)
   let right = normalize(new.facts)
@@ -140,9 +150,10 @@ pub fn diff(old : FactSet, new : FactSet) -> DiffReport {
       j = j + 1
     }
   }
-  { added, removed, changed }
+  { added, removed, changed, }
 }
 
+///|
 fn jloc(loc : FactLocation) -> Json {
   Json::object({
     "section": Json::string(loc.section),
@@ -153,6 +164,7 @@ fn jloc(loc : FactLocation) -> Json {
   })
 }
 
+///|
 fn jlocopt(loc : FactLocation?) -> Json {
   match loc {
     Some(value) => jloc(value)
@@ -160,6 +172,7 @@ fn jlocopt(loc : FactLocation?) -> Json {
   }
 }
 
+///|
 fn jitem(item : DiffItem) -> Json {
   Json::object({
     "change": Json::string(item.change),
@@ -172,7 +185,8 @@ fn jitem(item : DiffItem) -> Json {
   })
 }
 
-///| Canonical JSON diff.
+///|
+/// Canonical JSON diff.
 pub fn DiffReport::to_json(self : DiffReport) -> String {
   let added : Array[Json] = []
   for item in self.added {
@@ -193,7 +207,8 @@ pub fn DiffReport::to_json(self : DiffReport) -> String {
   }).stringify()
 }
 
-///| Minimal SARIF 2.1.0 for CI consumption.
+///|
+/// Minimal SARIF 2.1.0 for CI consumption.
 pub fn DiffReport::to_sarif(self : DiffReport) -> String {
   let results : Array[Json] = []
   for item in self.added {
@@ -212,7 +227,9 @@ pub fn DiffReport::to_sarif(self : DiffReport) -> String {
         "tool": Json::object({
           "driver": Json::object({
             "name": Json::string("MoonForge RE Workbench"),
-            "informationUri": Json::string("https://github.com/NaIWaniubi/moonforge"),
+            "informationUri": Json::string(
+              "https://github.com/NaIWaniubi/moonforge",
+            ),
           }),
         }),
         "results": Json::array(results),
@@ -221,6 +238,7 @@ pub fn DiffReport::to_sarif(self : DiffReport) -> String {
   }).stringify()
 }
 
+///|
 fn parse_location(value : Json) -> FactLocation raise DiffParseError {
   match value {
     Object(obj) => {
@@ -244,12 +262,13 @@ fn parse_location(value : Json) -> FactLocation raise DiffParseError {
         Some(Number(n, ..)) => n.to_int64()
         _ => 0L
       }
-      { section, rva, va, file_offset, size }
+      { section, rva, va, file_offset, size, }
     }
     _ => raise DiffParseError("location must be an object")
   }
 }
 
+///|
 fn parse_fact(value : Json) -> CanonicalFact raise DiffParseError {
   match value {
     Object(obj) => {
@@ -266,18 +285,24 @@ fn parse_fact(value : Json) -> CanonicalFact raise DiffParseError {
         _ => ""
       }
       let location = match obj.get("location") {
-        Some(loc) => try parse_location(loc) catch { DiffParseError(message) => raise DiffParseError(message) }
-        None => { section: "", rva: 0L, va: 0L, file_offset: 0L, size: 0L }
+        Some(loc) =>
+          parse_location(loc) catch {
+            DiffParseError(message) => raise DiffParseError(message)
+          }
+        None => { section: "", rva: 0L, va: 0L, file_offset: 0L, size: 0L, }
       }
-      { kind, key, value: val, location }
+      { kind, key, value: val, location, }
     }
     _ => raise DiffParseError("fact must be an object")
   }
 }
 
-///| Parse the canonical fact-set JSON produced by MoonForge adapters.
+///|
+/// Parse the canonical fact-set JSON produced by MoonForge adapters.
 pub fn FactSet::from_json(text : String) -> Result[FactSet, String] {
-  let root = try @json.parse(text) catch { _ => return Err("invalid fact-set JSON") }
+  let root = @json.parse(text) catch {
+    _ => return Err("invalid fact-set JSON")
+  }
   match root {
     Object(obj) => {
       let artifact_hash = match obj.get("artifact_hash") {
@@ -290,10 +315,12 @@ pub fn FactSet::from_json(text : String) -> Result[FactSet, String] {
       }
       let facts : Array[CanonicalFact] = []
       for item in facts_json {
-        let fact = try parse_fact(item) catch { DiffParseError(message) => return Err(message) }
+        let fact = parse_fact(item) catch {
+          DiffParseError(message) => return Err(message)
+        }
         facts.push(fact)
       }
-      Ok({ artifact_hash, facts: normalize(facts) })
+      Ok({ artifact_hash, facts: normalize(facts), })
     }
     _ => Err("fact-set root must be an object")
   }

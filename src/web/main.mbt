@@ -6,37 +6,72 @@
 // The host supplies a per-run virtual filesystem. Everything printed to stdout
 // is one JSON value; the page and Node acceptance test share this exact code.
 
+///|
 fn read_bytes(path : String) -> Bytes {
   @fs.read_file_to_bytes(path) catch {
     _ => Bytes::from_array([])
   }
 }
 
+///|
 fn parse_json_or_null(text : String) -> Json {
-  try @json.parse(text) catch {
+  @json.parse(text) catch {
     _ => Json::null()
   }
 }
 
+///|
 fn no_loc() -> @diff.FactLocation {
-  { section: "", rva: 0L, va: 0L, file_offset: 0L, size: 0L }
+  { section: "", rva: 0L, va: 0L, file_offset: 0L, size: 0L, }
 }
 
+///|
 fn is_plist(data : Bytes) -> Bool {
   data.has_prefix(b"bplist00"[:]) ||
   data.has_prefix(b"<?xml"[:]) ||
   data.has_prefix(b"<plist"[:])
 }
 
+///|
 fn facts_for(name : String, data : Bytes) -> @diff.FactSet {
   let record = @core.record_of_bytes(name, data)
   let facts : Array[@diff.CanonicalFact] = [
-    { kind: "artifact", key: "format", value: record.format.label(), location: no_loc() },
-    { kind: "artifact", key: "size", value: record.size.to_string(), location: no_loc() },
-    { kind: "summary", key: "sections", value: record.summary.sections.to_string(), location: no_loc() },
-    { kind: "summary", key: "symbols", value: record.summary.symbols.to_string(), location: no_loc() },
-    { kind: "summary", key: "imports", value: record.summary.imports.to_string(), location: no_loc() },
-    { kind: "summary", key: "exports", value: record.summary.exports.to_string(), location: no_loc() },
+    {
+      kind: "artifact",
+      key: "format",
+      value: record.format.label(),
+      location: no_loc(),
+    },
+    {
+      kind: "artifact",
+      key: "size",
+      value: record.size.to_string(),
+      location: no_loc(),
+    },
+    {
+      kind: "summary",
+      key: "sections",
+      value: record.summary.sections.to_string(),
+      location: no_loc(),
+    },
+    {
+      kind: "summary",
+      key: "symbols",
+      value: record.summary.symbols.to_string(),
+      location: no_loc(),
+    },
+    {
+      kind: "summary",
+      key: "imports",
+      value: record.summary.imports.to_string(),
+      location: no_loc(),
+    },
+    {
+      kind: "summary",
+      key: "exports",
+      value: record.summary.exports.to_string(),
+      location: no_loc(),
+    },
   ]
   if record.format == @core.Pe {
     let xref = @peinfo.xref_v2_of(data)
@@ -58,6 +93,7 @@ fn facts_for(name : String, data : Bytes) -> @diff.FactSet {
   }
 }
 
+///|
 fn artifact_json(name : String, data : Bytes) -> Json {
   let record = @core.record_of_bytes(name, data)
   let digest = match record.sha256 {
@@ -81,7 +117,11 @@ fn artifact_json(name : String, data : Bytes) -> Json {
     name,
     data,
     record.format.label(),
-    if data.length() == 0 { "empty" } else { "parsed" },
+    if data.length() == 0 {
+      "empty"
+    } else {
+      "parsed"
+    },
   )
   Json::object({
     "name": Json::string(name),
@@ -112,6 +152,7 @@ fn artifact_json(name : String, data : Bytes) -> Json {
   })
 }
 
+///|
 fn run_v2(argv : Array[String]) -> Unit {
   let names : Array[String] = []
   let datas : Array[Bytes] = []
@@ -132,15 +173,23 @@ fn run_v2(argv : Array[String]) -> Unit {
     artifacts.push(artifact_json(names[j], datas[j]))
   }
   let diff = if names.length() >= 2 {
-    parse_json_or_null(@diff.diff(facts_for(names[0], datas[0]), facts_for(names[1], datas[1])).to_json())
+    parse_json_or_null(
+      @diff.diff(facts_for(names[0], datas[0]), facts_for(names[1], datas[1])).to_json(),
+    )
   } else {
     Json::null()
   }
   let bundle = if names.length() >= 2 {
-    if @core.record_of_bytes(names[0], datas[0]).format == @core.MachO && is_plist(datas[1]) {
-      parse_json_or_null(@bundle.bundle_profile(datas[0], Some(datas[1])).to_json())
-    } else if @core.record_of_bytes(names[1], datas[1]).format == @core.MachO && is_plist(datas[0]) {
-      parse_json_or_null(@bundle.bundle_profile(datas[1], Some(datas[0])).to_json())
+    if @core.record_of_bytes(names[0], datas[0]).format == @core.MachO &&
+      is_plist(datas[1]) {
+      parse_json_or_null(
+        @bundle.bundle_profile(datas[0], Some(datas[1])).to_json(),
+      )
+    } else if @core.record_of_bytes(names[1], datas[1]).format == @core.MachO &&
+      is_plist(datas[0]) {
+      parse_json_or_null(
+        @bundle.bundle_profile(datas[1], Some(datas[0])).to_json(),
+      )
     } else {
       Json::null()
     }
@@ -149,14 +198,12 @@ fn run_v2(argv : Array[String]) -> Unit {
   }
   let docs : Array[@corpus.CorpusDoc] = []
   for j = 0; j < names.length(); j = j + 1 {
-    docs.push({ path: names[j], text: @corpus.strings_of(datas[j], 4) })
+    docs.push({ path: names[j], text: @corpus.strings_of(datas[j], 4), })
   }
   let matches = if query.length() > 0 {
     let idx = @corpus.new_index()
     @corpus.ingest(idx, docs)
-    let hits = @corpus.search(idx, query, 50) catch {
-      _ => []
-    }
+    let hits = @corpus.search(idx, query, 50) catch { _ => [] }
     parse_json_or_null(@corpus.results_to_json(hits, docs, query))
   } else {
     Json::array([])
@@ -173,7 +220,8 @@ fn run_v2(argv : Array[String]) -> Unit {
     "bundle": bundle,
     "matches": matches,
     "notes": Json::array(notes),
-  }).stringify() |> println
+  }).stringify()
+  |> println
 }
 
 ///|
@@ -183,11 +231,7 @@ fn main {
     run_v2(argv)
     return
   }
-  let path = if argv.length() > 1 {
-    argv[1]
-  } else {
-    "input.bin"
-  }
+  let path = if argv.length() > 1 { argv[1] } else { "input.bin" }
   let data = @fs.read_file_to_bytes(path) catch {
     _ => {
       println("{\"error\":\"cannot read input\"}")
@@ -231,17 +275,11 @@ fn main {
   }
   let text = @corpus.strings_of(data, 4)
   let idx = @corpus.new_index()
-  @corpus.ingest(idx, [{ path: "input.bin", text }])
-  let query = if argv.length() > 2 {
-    argv[2]
-  } else {
-    ""
-  }
+  @corpus.ingest(idx, [{ path: "input.bin", text, }])
+  let query = if argv.length() > 2 { argv[2] } else { "" }
   let matches = if query.length() > 0 {
-    let hits = @corpus.search(idx, query, 20) catch {
-      _ => []
-    }
-    @corpus.results_to_json(hits, [{ path: "input.bin", text }], query)
+    let hits = @corpus.search(idx, query, 20) catch { _ => [] }
+    @corpus.results_to_json(hits, [{ path: "input.bin", text, }], query)
   } else {
     "[]"
   }
@@ -264,7 +302,9 @@ fn top_apis(table : @xref.XrefTable) -> String {
   let mut i = 0
   while i < table.by_api.length() && i < 8 {
     let pair = table.by_api[i]
-    parts.push("{\"api\":\"" + pair.0 + "\",\"count\":" + pair.1.to_string() + "}")
+    parts.push(
+      "{\"api\":\"" + pair.0 + "\",\"count\":" + pair.1.to_string() + "}",
+    )
     i = i + 1
   }
   "[" + parts.join(",") + "]"

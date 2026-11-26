@@ -3,7 +3,7 @@
 // writes. It is not a general JSON parser and does not pretend to be one.
 
 ///|
-fn be32(data : Bytes, at : Int) -> Int {
+fn be32(data : Bytes, at : Int32) -> Int32 {
   (data[at].to_int() << 24) |
   (data[at + 1].to_int() << 16) |
   (data[at + 2].to_int() << 8) |
@@ -81,7 +81,7 @@ fn summarize(data : Bytes, format : Format) -> Summary {
 }
 
 ///|
-fn hex_nibble(v : Int) -> Char {
+fn hex_nibble(v : Int32) -> Char {
   if v < 10 {
     (48 + v).unsafe_to_char()
   } else {
@@ -90,7 +90,7 @@ fn hex_nibble(v : Int) -> Char {
 }
 
 ///|
-fn hex_value(c : UInt16) -> Int? {
+fn hex_value(c : UInt16) -> Int32? {
   let v = c.to_int()
   if v >= 48 && v <= 57 {
     Some(v - 48)
@@ -208,7 +208,7 @@ pub fn Manifest::to_json(self : Manifest) -> String {
 // key reordering; refuses anything else with a message naming the field.
 
 ///|
-fn skip_ws(s : String, at : Int) -> Int {
+fn skip_ws(s : String, at : Int32) -> Int32 {
   let mut i = at
   while i < s.length() {
     let c = s[i]
@@ -224,7 +224,7 @@ fn skip_ws(s : String, at : Int) -> Int {
 ///|
 /// Index just past the string starting at `at` (which must be '"'), plus the
 /// decoded value. Returns None when the string is unterminated.
-fn read_string(s : String, at : Int) -> (String, Int)? {
+fn read_string(s : String, at : Int32) -> (String, Int32)? {
   if at >= s.length() || s[at].to_int() != 34 {
     return None
   }
@@ -284,7 +284,7 @@ fn read_string(s : String, at : Int) -> (String, Int)? {
 }
 
 ///|
-fn read_int(s : String, at : Int) -> (Int64, Int)? {
+fn read_int(s : String, at : Int32) -> (Int64, Int32)? {
   let mut i = at
   let mut neg = false
   if i < s.length() && s[i].to_int() == 45 {
@@ -310,7 +310,7 @@ fn read_int(s : String, at : Int) -> (Int64, Int)? {
 }
 
 ///|
-fn read_format(s : String, at : Int) -> (Format, Int)? {
+fn read_format(s : String, at : Int32) -> (Format, Int32)? {
   match read_string(s, at) {
     Some((label, next)) =>
       match Format::from_label(label) {
@@ -324,7 +324,7 @@ fn read_format(s : String, at : Int) -> (Format, Int)? {
 ///|
 /// Read the object body of one file record starting at `{`. Returns the record
 /// and the index just past its closing `}`.
-fn read_record(s : String, at : Int) -> (FileRecord, Int)? {
+fn read_record(s : String, at : Int32) -> (FileRecord, Int32)? {
   let mut i = skip_ws(s, at)
   if i >= s.length() || s[i].to_int() != 123 {
     return None
@@ -399,22 +399,24 @@ fn read_record(s : String, at : Int) -> (FileRecord, Int)? {
   }
   match (path, format, size, summary) {
     (Some(p), Some(f), Some(sz), Some(sm)) =>
-      Some(({ path: p, format: f, size: sz, sha256: digest, summary: sm }, i + 1))
+      Some(
+        ({ path: p, format: f, size: sz, sha256: digest, summary: sm, }, i + 1),
+      )
     _ => None
   }
 }
 
 ///|
-fn read_summary(s : String, at : Int) -> (Summary, Int)? {
+fn read_summary(s : String, at : Int32) -> (Summary, Int32)? {
   let mut i = skip_ws(s, at)
   if i >= s.length() || s[i].to_int() != 123 {
     return None
   }
   i = skip_ws(s, i + 1)
-  let mut sections : Int? = None
-  let mut symbols : Int? = None
-  let mut imports : Int? = None
-  let mut exports : Int? = None
+  let mut sections : Int32? = None
+  let mut symbols : Int32? = None
+  let mut imports : Int32? = None
+  let mut exports : Int32? = None
   while i < s.length() && s[i].to_int() != 125 {
     let (key, after_key) = match read_string(s, i) {
       Some(pair) => pair
@@ -450,7 +452,7 @@ fn read_summary(s : String, at : Int) -> (Summary, Int)? {
   }
   match (sections, symbols, imports, exports) {
     (Some(a), Some(b), Some(c), Some(d)) =>
-      Some(({ sections: a, symbols: b, imports: c, exports: d }, i + 1))
+      Some(({ sections: a, symbols: b, imports: c, exports: d, }, i + 1))
     _ => None
   }
 }

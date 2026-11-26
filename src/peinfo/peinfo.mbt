@@ -19,6 +19,7 @@
 ///   RVA comes from OriginalFirstThunk + i*ptrsize (falling back to FirstThunk
 ///   itself when the original thunk table is absent). A zero entry ends the
 ///   library. An entry with its high bit set (bit 63 / bit 31) is by-ordinal.
+
 ///|
 /// Count nonzero entries in a thunk table (INT or IAT) at `rva`, stepping by
 /// `ptr` bytes. Returns 0 when the table is unmapped; caps at 65536 so a
@@ -26,21 +27,17 @@
 fn count_thunks(
   rva_to_off : (Int64) -> Int64,
   rva : Int64,
-  ptr : Int,
-  u32 : (Int) -> Int64,
-  u64 : (Int) -> Int64,
-) -> Int {
+  ptr : Int32,
+  u32 : (Int32) -> Int64,
+  u64 : (Int32) -> Int64,
+) -> Int32 {
   let mut n = 0
   while n < 65536 {
     let off = rva_to_off(rva + (n * ptr).to_int64())
     if off < 0L {
       break
     }
-    let raw = if ptr == 8 {
-      u64(off.to_int())
-    } else {
-      u32(off.to_int())
-    }
+    let raw = if ptr == 8 { u64(off.to_int()) } else { u32(off.to_int()) }
     if raw == 0L {
       break
     }
@@ -56,13 +53,13 @@ fn iat_slots(data : Bytes) -> Array[(Int64, String)] {
     Ok(pe) => pe
     Err(_) => return out
   }
-  let u16 = fn(at : Int) -> Int {
+  let u16 = fn(at : Int32) -> Int32 {
     if at + 1 >= data.length() {
       return -1
     }
     data[at].to_int() | (data[at + 1].to_int() << 8)
   }
-  let u32 = fn(at : Int) -> Int64 {
+  let u32 = fn(at : Int32) -> Int64 {
     if at + 3 >= data.length() {
       return -1L
     }
@@ -71,7 +68,7 @@ fn iat_slots(data : Bytes) -> Array[(Int64, String)] {
     (data[at + 2].to_int().to_int64() << 16) |
     (data[at + 3].to_int().to_int64() << 24)
   }
-  let u64 = fn(at : Int) -> Int64 {
+  let u64 = fn(at : Int32) -> Int64 {
     let lo = u32(at)
     let hi = u32(at + 4)
     if lo < 0L || hi < 0L {
@@ -86,21 +83,13 @@ fn iat_slots(data : Bytes) -> Array[(Int64, String)] {
   let opt = pe_off + 24
   let magic = u16(opt)
   let is64 = magic == 0x20B
-  if !(is64) && magic != 0x10B {
+  if !is64 && magic != 0x10B {
     return out
   }
-  let ptr = if is64 {
-    8
-  } else {
-    4
-  }
+  let ptr = if is64 { 8 } else { 4 }
   // The optional header's data-directory array starts after a fixed prefix:
   // 112 bytes into a PE32+ optional header, 96 into a PE32 one.
-  let dd = if is64 {
-    opt + 112
-  } else {
-    opt + 96
-  }
+  let dd = if is64 { opt + 112 } else { opt + 96 }
   let import_rva = u32(dd + 8)
   let import_size = u32(dd + 12)
   if import_rva <= 0L || import_size <= 0L {
@@ -147,11 +136,7 @@ fn iat_slots(data : Bytes) -> Array[(Int64, String)] {
     if name_rva == 0L && ft == 0L {
       break
     }
-    let thunk_table = if oft != 0L {
-      oft
-    } else {
-      ft
-    }
+    let thunk_table = if oft != 0L { oft } else { ft }
     // Two independent lengths bound a library's slot block:
     //   int_len — entries in the hint/name table (stops at the first zero);
     //   iat_len — nonzero slots in the IAT itself.
@@ -162,11 +147,7 @@ fn iat_slots(data : Bytes) -> Array[(Int64, String)] {
     // is labelled `#unresolved` rather than omitted.
     let int_len = count_thunks(rva_to_off, thunk_table, ptr, u32, u64)
     let iat_len = count_thunks(rva_to_off, ft, ptr, u32, u64)
-    let n = if int_len > iat_len {
-      int_len
-    } else {
-      iat_len
-    }
+    let n = if int_len > iat_len { int_len } else { iat_len }
     let mut i = 0
     while i < n {
       let entry_rva = thunk_table + (i * ptr).to_int64()
@@ -214,11 +195,7 @@ fn iat_slots(data : Bytes) -> Array[(Int64, String)] {
         if name_rva == 0L && iat_rva == 0L {
           break
         }
-        let table = if int_rva != 0L {
-          int_rva
-        } else {
-          iat_rva
-        }
+        let table = if int_rva != 0L { int_rva } else { iat_rva }
         let n = count_thunks(rva_to_off, table, ptr, u32, u64)
         let mut k = 0
         while k < n {
@@ -288,7 +265,6 @@ fn text_of(data : Bytes) -> (Bytes, Int64) {
   (Bytes::from_array(parts), base)
 }
 
-
 ///|
 /// Full pipeline for one PE image: IAT slots from the import and delay-import
 /// descriptors, `.text` bytes, and the resolved call-site table.
@@ -300,7 +276,7 @@ pub fn xref_of(data : Bytes) -> @xref.XrefTable {
 
 ///|
 /// Just the slot count, for reporting without running the disassembler.
-pub fn slot_count(data : Bytes) -> Int {
+pub fn slot_count(data : Bytes) -> Int32 {
   iat_slots(data).length()
 }
 
@@ -329,7 +305,7 @@ fn exec_sections(data : Bytes) -> Array[@xref.XrefSection] {
       continue
     }
     let code = Bytes::makei(len, fn(i) { data[start + i] })
-    out.push({ name: sec.name, base: sec.vaddr, code })
+    out.push({ name: sec.name, base: sec.vaddr, code, })
   }
   out
 }
@@ -340,4 +316,3 @@ pub fn xref_v2_of(data : Bytes) -> @xref.XrefReportV2 {
   let slots = iat_slots(data)
   @xref.build_xref_v2(exec_sections(data), slots)
 }
-

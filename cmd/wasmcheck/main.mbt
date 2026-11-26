@@ -1,4 +1,6 @@
 // wasmcheck: `moonforge-wasmcheck <module.wasm>`
+
+///|
 fn main {
   let argv = @env.args()
   if argv.length() < 2 {

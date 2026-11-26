@@ -1,20 +1,23 @@
 // bundle: join a Mach-O image and an optional Info.plist into one honest
 // profile. Missing or malformed inputs are reported, never guessed.
 
-///| Top-level plist facts that matter for app identity.
+///|
+/// Top-level plist facts that matter for app identity.
 pub struct PlistSummary {
   keys : Array[String]
   bundle_id : String?
   version : String?
 } derive(Debug)
 
-///| Combined app-bundle profile.
+///|
+/// Combined app-bundle profile.
 pub struct BundleReport {
   macho_format : String
   plist : PlistSummary?
   note : String
 } derive(Debug)
 
+///|
 fn text_value(value : @moonplist.Value?) -> String? {
   match value {
     Some(@moonplist.Text(s)) => Some(s)
@@ -22,6 +25,7 @@ fn text_value(value : @moonplist.Value?) -> String? {
   }
 }
 
+///|
 fn plist_summary(data : Bytes) -> PlistSummary? raise @moonplist.PlistError {
   let value = @moonplist.decode(data)
   match value {
@@ -40,9 +44,13 @@ fn plist_summary(data : Bytes) -> PlistSummary? raise @moonplist.PlistError {
   }
 }
 
-///| Profile a Mach-O image and an optional plist. The function is total:
+///|
+/// Profile a Mach-O image and an optional plist. The function is total:
 /// malformed or missing inputs become explicit notes instead of panics.
-pub fn bundle_profile(macho_bytes : Bytes, plist_bytes : Bytes?) -> BundleReport {
+pub fn bundle_profile(
+  macho_bytes : Bytes,
+  plist_bytes : Bytes?,
+) -> BundleReport {
   let macho_format = match @macho.parse(macho_bytes) {
     Ok(m) => "macho-" + m.class.to_string()
     Err(_) => "none"
@@ -76,9 +84,10 @@ pub fn bundle_profile(macho_bytes : Bytes, plist_bytes : Bytes?) -> BundleReport
         }
       }
   }
-  { macho_format, plist, note }
+  { macho_format, plist, note, }
 }
 
+///|
 fn json_string(s : String) -> String {
   let out : Array[Char] = ['"']
   for c in s {
@@ -99,6 +108,7 @@ fn json_string(s : String) -> String {
   String::from_array(out)
 }
 
+///|
 fn option_string(value : String?) -> String {
   match value {
     Some(s) => json_string(s)
@@ -106,7 +116,8 @@ fn option_string(value : String?) -> String {
   }
 }
 
-///| Canonical JSON for CLI and browser consumers.
+///|
+/// Canonical JSON for CLI and browser consumers.
 pub fn BundleReport::to_json(self : BundleReport) -> String {
   let plist = match self.plist {
     None => "null"
