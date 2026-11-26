@@ -350,18 +350,40 @@ fn disp32(data : Bytes, at : Int32) -> Int64 {
 }
 
 ///|
+fn is_prefix(byte : Int32) -> Bool {
+  byte == 0x66 ||
+  byte == 0x67 ||
+  byte == 0xF0 ||
+  byte == 0xF2 ||
+  byte == 0xF3 ||
+  byte == 0x2E ||
+  byte == 0x36 ||
+  byte == 0x3E ||
+  byte == 0x26 ||
+  byte == 0x64 ||
+  byte == 0x65 ||
+  (byte >= 0x40 && byte <= 0x4F)
+}
+
+///|
 /// Derive a static call target from the encoded instruction bytes, not from
-/// the disassembler's display string. Only E8 rel32 and FF 15 rip-rel32 are
-/// accepted; every other call shape stays indirect.
+/// the disassembler's display string. Prefixes are skipped explicitly because
+/// real PE import calls commonly use `48 FF 15` (REX.W + call [rip+disp32]).
 fn call_target_bytes(
   data : Bytes,
   addr : Int64,
   len : Int32,
 ) -> (Int64, String)? {
-  if len >= 5 && data[0].to_int() == 0xE8 {
-    Some((addr + 5L + disp32(data, 1), "E8-rel32"))
-  } else if len >= 6 && data[0].to_int() == 0xFF && data[1].to_int() == 0x15 {
-    Some((addr + 6L + disp32(data, 2), "FF15-rip-rel32"))
+  let mut at = 0
+  while at < len && is_prefix(data[at].to_int()) {
+    at = at + 1
+  }
+  if at + 5 <= len && data[at].to_int() == 0xE8 {
+    Some((addr + (at + 5).to_int64() + disp32(data, at + 1), "E8-rel32"))
+  } else if at + 6 <= len &&
+    data[at].to_int() == 0xFF &&
+    data[at + 1].to_int() == 0x15 {
+    Some((addr + (at + 6).to_int64() + disp32(data, at + 2), "FF15-rip-rel32"))
   } else {
     None
   }

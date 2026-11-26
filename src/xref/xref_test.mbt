@@ -157,3 +157,18 @@ test "xref v2: multiple sections retain independent bases" {
   assert_eq(report.sites[1].rva, 0L)
   assert_eq(report.sections_scanned, 2)
 }
+
+///|
+/// Real x64 import calls often carry a REX.W prefix: 48 FF 15 <disp32>.
+test "xref v2: skips REX prefixes before FF15" {
+  let code : Bytes = Bytes::from_array(
+    [0x48, 0xFF, 0x15, 0x00, 0x00, 0x00, 0x00].map(fn(v) { v.to_byte() }),
+  )
+  let report = build_xref_v2([{ name: ".text", base: 0x1000L, code, }], [
+    (0x1007L, "VirtualAlloc"),
+  ])
+  assert_eq(report.sites.length(), 1)
+  assert_eq(report.sites[0].api, "VirtualAlloc")
+  assert_eq(report.sites[0].target_addr, 0x1007L)
+  assert_eq(report.sites[0].rule, "FF15-rip-rel32")
+}
