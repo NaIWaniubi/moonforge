@@ -32,7 +32,7 @@ bash scripts/clean_clone_check.sh
 - 基准：1000 文件 p50 1.47 ms，p95 14.02 ms，默认门限 150 ms（本机 Windows）
 - SARIF：输出通过 SARIF 2.1.0 官方 schema 校验
 - 真实浏览器：ZCode 内置 Chrome 完成 Demo 加载、拖放、5 artifact 自动分析、policy BLOCK、非法 policy 失败关闭、JSON 导出；截图见 `submission/browser-gate.png`
-- 申报书：`submission/PROPOSAL.pdf` 已生成并核验为 **1 页 A4**，预览见 `submission/PROPOSAL-preview.png`；内容仍为 AI 底稿，提交前必须由用户本人重写
+- 申报书：最终提交 `PROPOSAL.md`（Markdown）；`submission/PROPOSAL.pdf` 仅作预览，不上传。内容仍为 AI 底稿，提交前必须由用户本人重写
 
 ## 线上链接
 
