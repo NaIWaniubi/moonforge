@@ -18,9 +18,9 @@
 
 - [x] GitHub 仓库公开
 - [x] README 中英双语
-- [x] `PROPOSAL.md` 八点一页底稿
+- [x] `PROPOSAL.md` 八点申报书源稿（最终提交 Markdown）
 - [ ] 用户本人重写 `PROPOSAL.md`，确保不是 AI 文案
-- [ ] 生成并人工核验 `submission/PROPOSAL.pdf` 为一页 A4
+- [ ] 人工核验 `PROPOSAL.md`；`submission/PROPOSAL.pdf` 仅作预览，不上传
 - [x] GitHub Pages 部署并返回 200
 - [x] 本地真实 Chrome 拖放 / diff / policy gate / 导出验收
 - [x] Pages 真实 Chrome 复验
